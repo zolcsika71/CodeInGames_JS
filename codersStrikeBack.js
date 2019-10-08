@@ -10,7 +10,7 @@ const
         [{x: 5029, y: 5286}, {x: 11455, y: 6106}, {x: 9091, y: 1850}],
         [{x: 13563, y: 7624}, {x: 12467, y: 1370}, {x: 10546, y: 6003}, {x: 3563, y: 5198}],
         [{x: 2663, y: 7040}, {x: 10014, y: 5964}, {x: 13909, y: 1910}, {x: 8010, y: 3248}],
-
+        [{x: 6548, y: 7820}, {x: 7484, y: 1381}, {x: 12718, y: 7070}, {x: 4087, y: 4644}, {x: 13019, y: 1876}],
 
     ],
     BOOST_DIST = 6000,
@@ -63,19 +63,19 @@ while (true) {
             else if (CP_angle === 4)
                 thrust = THRUST[7];
             else if (CP_angle === 5)
-                thrust = THRUST[7];
-            else if (CP_angle === 6)
                 thrust = THRUST[6];
-            else if (CP_angle === 7)
+            else if (CP_angle === 6)
                 thrust = THRUST[5];
-            else if (CP_angle === 8)
+            else if (CP_angle === 7)
                 thrust = THRUST[4];
-            else if (CP_angle === 9)
+            else if (CP_angle === 8)
                 thrust = THRUST[3];
+            else if (CP_angle === 9)
+                thrust = THRUST[2];
             else if (CP_angle === 10)
                 thrust = THRUST[1];
-            else
-                thrust = THRUST[0];
+            else if (CP_angle === 10)
+                thrust = THRUST[1];
 
             return thrust;
 
@@ -136,19 +136,19 @@ while (true) {
                     thrust = angleToThrust(CP_angle);
                     break;
                 case 'MIDDLE':
-                    if (MY_speed > 100 && CP_angle <= 1)
+                    if (MY_speed >= 450 && CP_angle <= 1)
                         thrust = THRUST[0];
                     else
                         thrust = angleToThrust(CP_angle);
                     break;
                 case 'CLOSE':
-                    if (MY_speed < 100)
-                        thrust = THRUST[5];
+                    if (MY_speed < 300 && CP_angle <= 1)
+                        thrust = THRUST[7];
                     else
-                        thrust = angleToThrust(CP_angle);
+                        thrust = THRUST[0];
                     break;
                 case 'SLIP':
-                    if (MY_speed < 20)
+                    if (MY_speed < 100)
                         thrust = THRUST[3];
                     else
                         thrust = THRUST[0];
@@ -172,7 +172,7 @@ while (true) {
         CP_dist = checkDist(nextCP.dist),
         MY_speed = checkSpeed(myLastPos, myPos),
         thrust = setThrust(CP_angle, CP_dist, MY_speed),
-        text = `thrust: ${thrust} speed: ${MY_speed} dist: ${nextCP.dist} angle: ${nextCP.angle} status: ${CP_dist}`;
+        text = `thr: ${thrust} sp: ${MY_speed} d: ${nextCP.dist} ang: ${nextCP.angle} st: ${CP_dist}`;
 
     console.log(`${nextCP.pos.x} ${nextCP.pos.y} ${thrust} ${text}`);
 
