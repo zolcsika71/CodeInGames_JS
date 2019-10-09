@@ -110,22 +110,21 @@ while (true) { // infinite loop in inspections
         },
         fillMap = (nextCPPos) => {
 
-           let index = map.indexOf(nextCPPos);
+            let index = map.findIndex(i => i.x === nextCPPos.x && i.y === nextCPPos.y);
 
-           if (index === -1)
-              map.push(nextCPPos);
-           else if (index !== map.length -1)
-               mapReady = true;
-
+            if (index === -1)
+                map.push(nextCPPos);
+            else if (index !== map.length - 1)
+                mapReady = true;
         },
         myPod = new Pod(),
         text = `hello`,
-        thrustToTry = 100;
+        thrustToTry;
 
     // fill possible maps
     if (!mapReady)
         fillMap(nextCP.pos);
-
+    else
 
     // init myPod
     myPod.x = myPos.x;

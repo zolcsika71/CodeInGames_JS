@@ -153,14 +153,18 @@ while (true) {
         },
         fillMap = (nextCPPos) => {
 
-            let index = map.indexOf(nextCPPos);
+            let index = map.findIndex(i => i.x === nextCPPos.x && i.y === nextCPPos.y);
 
             if (index === -1)
                 map.push(nextCPPos);
-            else if (index !== map.length -1)
+            else if (index !== map.length - 1)
                 mapReady = true;
 
-            return index;
+            if (index === -1)
+                return map.length - 1;
+            else
+                return index;
+
 
         },
         CP_angle = checkAngle(nextCP.angle),
@@ -172,11 +176,11 @@ while (true) {
     if (!mapReady)
         CPNumber = fillMap(nextCP.pos);
     else
-        CPNumber = map.indexOf(nextCP.pos);
+        CPNumber = map.findIndex(i => i.x === nextCP.pos.x && i.y === nextCP.pos.y);
 
     //text = `thr: ${thrust} sp: ${MY_speed} d: ${nextCP.dist} ang: ${nextCP.angle} st: ${CP_dist} ${mapReady ? map[CPNumber] : ''}`;
 
-    text = `${mapReady} ${map.length} ${map[0].x} ${map[0].y} ${CPNumber}`;
+    text = `${mapReady} ${map.length} ${map[CPNumber].x} ${map[CPNumber].y} ${CPNumber}`;
     console.log(`${nextCP.pos.x} ${nextCP.pos.y} ${thrust} ${text}`);
 
 }
