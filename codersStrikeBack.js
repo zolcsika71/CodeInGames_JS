@@ -4,15 +4,6 @@
  **/
 
 const
-    possibleMaps = [
-        [{x: 5440, y: 2831}, {x: 10335, y: 3365}, {x: 11194, y: 5407}, {x: 7234, y: 6644}],
-        [{x: 5423, y: 2826}, {x: 10341, y: 3344}, {x: 11188, y: 5447}, {x: 7238, y: 6650}],
-        [{x: 5029, y: 5286}, {x: 11455, y: 6106}, {x: 9091, y: 1850}],
-        [{x: 13563, y: 7624}, {x: 12467, y: 1370}, {x: 10546, y: 6003}, {x: 3563, y: 5198}],
-        [{x: 2663, y: 7040}, {x: 10014, y: 5964}, {x: 13909, y: 1910}, {x: 8010, y: 3248}],
-        [{x: 6548, y: 7820}, {x: 7484, y: 1381}, {x: 12718, y: 7070}, {x: 4087, y: 4644}, {x: 13019, y: 1876}],
-
-    ],
     BOOST_DIST = 6000,
     CP_ANGLE = [0, 9, 18, 27, 36, 45, 54, 63, 72, 81, 90],
     THRUST = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 'BOOST'],
@@ -27,6 +18,9 @@ let myLastPos = {
         x: 0,
         y: 0
     },
+    CPNumber = 0,
+    map = [],
+    mapReady = false;
     boosted = false;
 
 // game loop
@@ -159,21 +153,29 @@ while (true) {
             }
             return thrust;
         },
-        selectMap = (possibleMaps) => {
-            let i = 0;
-            for (let map of possibleMaps) {
-                if (map[1].x === nextCP.pos.x && map[1].y === nextCP.pos.y)
-                    return i;
-                else i++;
-            }
+        fillMap = (nextCPPos) => {
+
+            let index = map.indexOf(nextCPPos);
+
+            if (index === -1)
+                map.push(nextCPPos);
+            else if (index !== map.length -1)
+                mapReady = true;
+
         },
-        map = selectMap(possibleMaps),
         CP_angle = checkAngle(nextCP.angle),
         CP_dist = checkDist(nextCP.dist),
         MY_speed = checkSpeed(myLastPos, myPos),
         thrust = setThrust(CP_angle, CP_dist, MY_speed),
-        text = `thr: ${thrust} sp: ${MY_speed} d: ${nextCP.dist} ang: ${nextCP.angle} st: ${CP_dist}`;
+        text;
 
+    if (!mapReady)
+        fillMap(nextCP.pos);
+    else
+        CPNumber = map.indexOf(nextCP.pos);
+
+
+    text = `thr: ${thrust} sp: ${MY_speed} d: ${nextCP.dist} ang: ${nextCP.angle} st: ${CP_dist} ${mapReady ? map[CPNumber] : ''}`;
     console.log(`${nextCP.pos.x} ${nextCP.pos.y} ${thrust} ${text}`);
 
 }
