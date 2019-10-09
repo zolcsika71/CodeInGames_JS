@@ -21,7 +21,6 @@ let myLastPos = {
     CPNumber = 0,
     map = [],
     mapReady = false;
-    boosted = false;
 
 // game loop
 while (true) {
@@ -91,7 +90,7 @@ while (true) {
         },
         checkDist = (nextCP_dist) => {
             let NEXT_CP_DIST = {
-                    BOOST_DIST: nextCP_dist > BOOST_DIST && !boosted,
+                    BOOST_DIST: nextCP_dist > BOOST_DIST,
                     FAR: nextCP_dist >= CP_DIST.MIDDLE,
                     MIDDLE: nextCP_dist < CP_DIST.MIDDLE && nextCP_dist >= CP_DIST.CLOSE,
                     CLOSE: nextCP_dist < CP_DIST.CLOSE && nextCP_dist >= CP_DIST.BORDER,
@@ -122,7 +121,6 @@ while (true) {
                 case 'BOOST_DIST':
                     if (CP_angle <= 1) {
                         thrust = THRUST[11];
-                        boosted = true;
                     } else
                         thrust = angleToThrust(CP_angle);
                     break;
@@ -162,6 +160,8 @@ while (true) {
             else if (index !== map.length -1)
                 mapReady = true;
 
+            return index;
+
         },
         CP_angle = checkAngle(nextCP.angle),
         CP_dist = checkDist(nextCP.dist),
@@ -170,12 +170,13 @@ while (true) {
         text;
 
     if (!mapReady)
-        fillMap(nextCP.pos);
+        CPNumber = fillMap(nextCP.pos);
     else
         CPNumber = map.indexOf(nextCP.pos);
 
+    //text = `thr: ${thrust} sp: ${MY_speed} d: ${nextCP.dist} ang: ${nextCP.angle} st: ${CP_dist} ${mapReady ? map[CPNumber] : ''}`;
 
-    text = `thr: ${thrust} sp: ${MY_speed} d: ${nextCP.dist} ang: ${nextCP.angle} st: ${CP_dist} ${mapReady ? map[CPNumber] : ''}`;
+    text = `${mapReady} ${map.length} ${map[0].x} ${map[0].y} ${CPNumber}`;
     console.log(`${nextCP.pos.x} ${nextCP.pos.y} ${thrust} ${text}`);
 
 }
