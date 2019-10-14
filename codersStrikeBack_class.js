@@ -5,47 +5,51 @@
 
 class Point {
     constructor(x, y) {
-        this._x = x;
-        this._y = y;
+        this.x = x;
+        this.y = y;
     }
     distSquare (point) {
 
-        let x = Math.abs(this._x - point.x),
-            y = Math.abs(this._y - point.y);
+        let x = Math.abs(this.x - point.x),
+            y = Math.abs(this.y - point.y);
 
         return Math.pow(x, 2) + Math.pow(y, 2);
-    };
+    }
     dist (point) {
         return Math.sqrt(distSquare(point));
-    };
+    }
 }
 
 class Pod extends Point {
     constructor(x, y, angle) {
         super(x, y);
-        this._angle = angle;
+        this.angle = angle;
+        this.vx = 0;
+        this.vy = 0;
     }
     getAngle (point) {
         let dist = this.dist,
-            dx = (point.x - this._x) / dist,
-            dy = (point.y - this._y) / dist,
+            dx = (point.x - this.x) / dist,
+            dy = (point.y - this.y) / dist,
             angle = Math.acos(dx) * 180 / Math.PI;
+
+        //console.error(`dist: ${dist}`);
 
         if (dy < 0)
             angle = 360 - angle;
-        return angle;
-    };
+        return dist;
+    }
     diffAngle (point) {
         let angle = this.getAngle(point),
-            right = this._angle <= angle ? angle - this._angle : 360 - this._angle + angle,
-            left = this._angle >= angle ? this._angle - angle : this._angle + 360 - angle;
+            right = this.angle <= angle ? angle - this.angle : 360 - this.angle + angle,
+            left = this.angle >= angle ? this.angle - angle : this.angle + 360 - angle;
 
         if (right < left)
             return right;
         else
             return -left;
 
-    };
+    }
     rotate (point) {
         let diffAngle = this.diffAngle(point);
         if (diffAngle > 18)
@@ -53,31 +57,31 @@ class Pod extends Point {
         else if (diffAngle < -18)
             diffAngle = -18;
 
-        this._angle += diffAngle;
+        this.angle += diffAngle;
 
-        if (this._angle >= 360)
-            this._angle = this._angle - 360;
-        else if (this._angle < 0)
-            this._angle += 360;
-    };
+        if (this.angle >= 360)
+            this.angle = this.angle - 360;
+        else if (this.angle < 0)
+            this.angle += 360;
+    }
     calcVectors (thrust) {
 
-        let radiant = this._angle * Math.PI / 180;
+        let radiant = this.angle * Math.PI / 180;
 
         this.vx += Math.cos(radiant) * thrust;
         this.vy += Math.sin(radiant) * thrust;
-    };
+    }
     move (t = 1) {
         this.x += this.vx * t;
         this.y += this.vy * t;
-    };
+    }
     end () {
-        this._x = Math.round(this.x);
-        this._y = Math.round(this.y);
+        this.x = Math.round(this.x);
+        this.y = Math.round(this.y);
         this.vx = Math.floor(this.vx * 0.85);
         this.vy = Math.floor(this.vy * 0.85);
 
-    };
+    }
     run (point, thrust) {
 
         this.rotate(point);
@@ -88,7 +92,7 @@ class Pod extends Point {
         // If it's 0.5 it will only move for half a turn's worth. If you don't want to simulate collisions you can replace t by 1.0.
         this.move();
         this.end();
-    };
+    }
 
 }
 
@@ -103,8 +107,6 @@ const
         BORDER: 600,
         SCORED: 400
     },
-
-
     angleToThrust = (CP_angle) => {
 
         let thrust;
@@ -215,7 +217,7 @@ const
     },
     findCoords = (nextCPPos) => {
         return map.findIndex(i => i.x === nextCPPos.x && i.y === nextCPPos.y);
-    };
+    },
     fillMap = (nextCPPos) => {
 
         let index = findCoords(nextCPPos);
@@ -229,7 +231,7 @@ const
             return map.length - 1;
         else
             return index;
-};
+    };
 
 let myLastPos = {
         x: 0,
@@ -286,6 +288,9 @@ while (true) {
         CPNumber = findCoords(nextCP.pos);
 
 
+    text.test = `getAngle: ${myPod.getAngle(nextCP.pos)}`;
+    console.error(`${text.test}`);
+
     // returns (next turn will be): myPod.angle, myPod.x, myPod.y
     myPod.run(nextCP.pos, thrust); // Nodes => based on thrustToTry
 
@@ -297,8 +302,8 @@ while (true) {
     text.checkSim = `${myPod.x === myPos.x ? 'OK' : myPod.x - myPos.x} ${myPod.y === myPos.y ? 'OK' : myPod.y - myPos.y} ${myPod.angle === nextCP.angle ? 'OK' : myPod.angle - nextCP.angle}`;
 
     //console.error(`${text.map}`);
-    console.error(`${text.sim}`);
-    console.error(`${text.checkSim}`);
+    //console.error(`${text.sim}`);
+    //console.error(`${text.checkSim}`);
 
 
     console.log(`${nextCP.pos.x} ${nextCP.pos.y} ${thrust} ${thrust}`);
