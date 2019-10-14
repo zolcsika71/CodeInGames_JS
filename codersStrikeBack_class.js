@@ -3,6 +3,96 @@
  * the standard input according to the problem statement.
  **/
 
+class Point {
+    constructor(x, y) {
+        this._x = x;
+        this._y = y;
+    }
+    distSquare (point) {
+
+        let x = Math.abs(this._x - point.x),
+            y = Math.abs(this._y - point.y);
+
+        return Math.pow(x, 2) + Math.pow(y, 2);
+    };
+    dist (point) {
+        return Math.sqrt(distSquare(point));
+    };
+}
+
+class Pod extends Point {
+    constructor(x, y, angle) {
+        super(x, y);
+        this._angle = angle;
+    }
+    getAngle (point) {
+        let dist = this.dist,
+            dx = (point.x - this._x) / dist,
+            dy = (point.y - this._y) / dist,
+            angle = Math.acos(dx) * 180 / Math.PI;
+
+        if (dy < 0)
+            angle = 360 - angle;
+        return angle;
+    };
+    diffAngle (point) {
+        let angle = this.getAngle(point),
+            right = this._angle <= angle ? angle - this._angle : 360 - this._angle + angle,
+            left = this._angle >= angle ? this._angle - angle : this._angle + 360 - angle;
+
+        if (right < left)
+            return right;
+        else
+            return -left;
+
+    };
+    rotate (point) {
+        let diffAngle = this.diffAngle(point);
+        if (diffAngle > 18)
+            diffAngle = 18;
+        else if (diffAngle < -18)
+            diffAngle = -18;
+
+        this._angle += diffAngle;
+
+        if (this._angle >= 360)
+            this._angle = this._angle - 360;
+        else if (this._angle < 0)
+            this._angle += 360;
+    };
+    calcVectors (thrust) {
+
+        let radiant = this._angle * Math.PI / 180;
+
+        this.vx += Math.cos(radiant) * thrust;
+        this.vy += Math.sin(radiant) * thrust;
+    };
+    move (t = 1) {
+        this.x += this.vx * t;
+        this.y += this.vy * t;
+    };
+    end () {
+        this._x = Math.round(this.x);
+        this._y = Math.round(this.y);
+        this.vx = Math.floor(this.vx * 0.85);
+        this.vy = Math.floor(this.vy * 0.85);
+
+    };
+    run (point, thrust) {
+
+        this.rotate(point);
+        this.calcVectors(thrust);
+        // What is the purpose of this t parameter in move()?
+        // It will be useful later when we'll want to simulate an entire turn while taking into account collisions.
+        // It is used to indicate by how much the pod should move forward. If t is 1.0 then the pod will move for a turn's worth.
+        // If it's 0.5 it will only move for half a turn's worth. If you don't want to simulate collisions you can replace t by 1.0.
+        this.move();
+        this.end();
+    };
+
+}
+
+
 const
     BOOST_DIST = 6000,
     CP_ANGLE = [0, 9, 18, 27, 36, 45, 54, 63, 72, 81, 90],
@@ -13,91 +103,8 @@ const
         BORDER: 600,
         SCORED: 400
     },
-    Point = () => {
-        this.x = 0;
-        this.y = 0;
-        this.distSquare = (point) => {
 
-            let x = Math.abs(this.x - point.x),
-                y = Math.abs(this.y - point.y);
 
-            return Math.pow(x, 2) + Math.pow(y, 2);
-        };
-        this.dist = (point) => {
-            return Math.sqrt(distSquare(point));
-        };
-    },
-    Pod = (name) => {
-        Point.call(this);
-        this.name = name;
-        this.angle = 0;
-        this.vx = 0;
-        this.vy = 0;
-        this.getAngle = (point) => {
-            let dist = this.dist,
-                dx = (point.x - this.x) / dist,
-                dy = (point.y - this.y) / dist,
-                angle = Math.acos(dx) * 180 / Math.PI;
-
-            if (dy < 0)
-                angle = 360 - angle;
-            return angle;
-        };
-        this.diffAngle = (point) => {
-            let angle = this.getAngle(point),
-                right = this.angle <= angle ? angle - this.angle : 360 - this.angle + angle,
-                left = this.angle >= angle ? this.angle - angle : this.angle + 360 - angle;
-
-            if (right < left)
-                return right;
-            else
-                return -left;
-
-        };
-        this.rotate = (point) => {
-            let diffAngle = this.diffAngle(point);
-            if (diffAngle > 18)
-                diffAngle = 18;
-            else if (diffAngle < -18)
-                diffAngle = -18;
-
-            this.angle += diffAngle;
-
-            if (this.angle >= 360)
-                this.angle = this.angle - 360;
-            else if (this.angle < 0)
-                this.angle += 360;
-        };
-        this.calcVectors = (thrust) => {
-
-            let radiant = this.angle * Math.PI / 180;
-
-            this.vx += Math.cos(radiant) * thrust;
-            this.vy += Math.sin(radiant) * thrust;
-        };
-        this.move = (t = 1) => {
-            this.x += this.vx * t;
-            this.y += this.vy * t;
-        };
-        this.end = () => {
-            this.x = Math.round(this.x);
-            this.y = Math.round(this.y);
-            this.vx = Math.floor(this.vx * 0.85);
-            this.vy = Math.floor(this.vy * 0.85);
-
-        };
-        this.run = (point, thrust) => {
-
-            this.rotate(point);
-            this.calcVectors(thrust);
-            // What is the purpose of this t parameter in move()?
-            // It will be useful later when we'll want to simulate an entire turn while taking into account collisions.
-            // It is used to indicate by how much the pod should move forward. If t is 1.0 then the pod will move for a turn's worth.
-            // If it's 0.5 it will only move for half a turn's worth. If you don't want to simulate collisions you can replace t by 1.0.
-            this.move();
-            this.end();
-        };
-    },
     angleToThrust = (CP_angle) => {
 
         let thrust;
@@ -228,18 +235,11 @@ let myLastPos = {
         x: 0,
         y: 0
     },
-    myPod = new Pod('myPod'),
     CPNumber = 0,
+    myPod,
+    podInit = false,
     map = [],
     mapReady = false;
-
-// init myPod
-myPod.x = myPos.x;
-myPod.y = myPos.y;
-if (nextCP.angle < 90 && nextCP.angle >= -180)
-    myPod.angle = nextCP.angle + 270;
-else if (nextCP.angle >= 90 && nextCP.angle <= 180)
-    myPod.angle = nextCP.angle - 90;
 
 // game loop
 while (true) {
@@ -268,6 +268,18 @@ while (true) {
         thrust = setThrust(CP_angle, CP_dist, MY_speed),
         text = {};
 
+
+    if (!podInit) {
+        if (nextCP.angle < 90 && nextCP.angle >= -180)
+            nextCP.angle = nextCP.angle + 270;
+        else if (nextCP.angle >= 90 && nextCP.angle <= 180)
+            nextCP.angle = nextCP.angle - 90;
+
+        myPod = new Pod(myPos.x, myPos.y, nextCP.angle)
+
+    } else
+        podInit = true;
+
     if (!mapReady)
         CPNumber = fillMap(nextCP.pos);
     else
@@ -284,9 +296,9 @@ while (true) {
     text.sim = `SIM -> x: ${myPod.x} y: ${myPod.y} angle: ${myPod.angle}`;
     text.checkSim = `${myPod.x === myPos.x ? 'OK' : myPod.x - myPos.x} ${myPod.y === myPos.y ? 'OK' : myPod.y - myPos.y} ${myPod.angle === nextCP.angle ? 'OK' : myPod.angle - nextCP.angle}`;
 
-    console.error(`${text.map}`);
-    console.error(`${text.CP}`);
-    console.error(`${text.coord}`);
+    //console.error(`${text.map}`);
+    console.error(`${text.sim}`);
+    console.error(`${text.checkSim}`);
 
 
     console.log(`${nextCP.pos.x} ${nextCP.pos.y} ${thrust} ${thrust}`);
