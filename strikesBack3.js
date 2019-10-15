@@ -1,6 +1,7 @@
 "use strict";
 
 const
+    BOOST = 'BOOST',
     boostRadius = 4000, // Minimum distance for activating boost
     radius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
     // Distance steps for slowing down the racer
@@ -8,14 +9,15 @@ const
     brakeStep2 = 1100,
     brakeStep3 = 800;
 
-let mapReady,
+let mapReady = false,
     map = [],
     CPIndex,
+    CPIndexNext,
     point,
     thrust,
     myPod,
+    log = {},
     boostAvailable = true,
-    podInit = false,
     findCoords = (nextCPPos) => {
         return map.findIndex(i => i.x === nextCPPos.x && i.y === nextCPPos.y);
     },
@@ -46,27 +48,6 @@ class Point {
 
         return Math.hypot(x, y)
     }
-    calculateGoal (point) {
-
-        let m = (point.y - this.y) / (point.x - this.x),
-            b = point.y - m * point.x,
-            // Calculate the two interference points
-            x1 = (point.x + this.radius / Math.sqrt(1 + m * m)),
-            x2 = (point.x - this.radius / Math.sqrt(1 + m * m)),
-            point1 = {
-                x: x1,
-                y: m * x1 + b
-            },
-            point2 = {
-                x: x2,
-                y: m * x2 + b
-            };
-
-        if (this.dist(point1) < this.dist(point2))
-            return point1;
-
-        return point2;
-    }
 }
 
 class Pod extends Point {
@@ -85,7 +66,7 @@ class Pod extends Point {
             let dist = this.dist(this.point);
             if (dist > boostRadius && boostAvailable && this.angle === 0 && mapReady) {
                 boostAvailable = false;
-                return 'BOOST';
+                return BOOST;
             } else if (dist <= brakeStep3) {
                 return 25;
             } else if (dist <= brakeStep2) {
@@ -95,6 +76,27 @@ class Pod extends Point {
             }
         }
         return 100;
+    }
+    calculateGoal () {
+
+        let m = (this.point.y - this.y) / (this.point.x - this.x),
+            b = this.point.y - m * this.point.x,
+            // Calculate the two interference points
+            x1 = (this.point.x + this.radius / Math.sqrt(1 + m * m)),
+            x2 = (this.point.x - this.radius / Math.sqrt(1 + m * m)),
+            point1 = {
+                x: x1,
+                y: m * x1 + b
+            },
+            point2 = {
+                x: x2,
+                y: m * x2 + b
+            };
+
+        if (this.dist(point1) < this.dist(point2))
+            return point1;
+
+        return point2;
     }
 }
 
@@ -121,27 +123,27 @@ while (true) {
             y: parseInt(opponentData[1])
         };
 
-    if (!podInit) {
-        myPod = new Pod(myPos, nextCP.pos, nextCP.angle);
-        podInit = true;
-    }
 
     if (!mapReady) {
         CPIndex = fillMap(nextCP.pos);
         myPod = new Pod(myPos, nextCP.pos, nextCP.angle);
-        point = myPod.calculateGoal(nextCP.pos);
+        point = myPod.calculateGoal();
     } else {
         CPIndex = findCoords(nextCP.pos);
-        myPod = new Pod(map[CPIndex], nextCP.pos, nextCP.angle);
-        point = myPod.calculateGoal(nextCP.pos);
+        CPIndexNext = CPIndex + 1 === map.length ? 0 : CPIndex + 1;
+        myPod = new Pod(map[CPIndexNext], nextCP.pos, nextCP.angle);
+        point = myPod.calculateGoal();
+        log.map = `mapReady: ${mapReady} mapLength: ${map.length} next_x: ${map[CPIndexNext].x} next_y: ${map[CPIndexNext].y} CPIndexNext: ${CPIndexNext}`;
+        console.error(log.map);
     }
-
-
 
     myPod = new Pod(myPos, point, nextCP.angle);
     thrust = myPod.adjustSpeed();
 
-    console.error(`${Math.round(point.x)} ${Math.round(point.y)} ${thrust}`);
+    log.basic = `x: ${Math.round(point.x)} y: ${Math.round(point.y)} thrust: ${thrust}`;
+    log.incompleteMap = `mapReady: ${mapReady} mapLength: ${map.length} x: ${map[CPIndex].x} y: ${map[CPIndex].y} CPIndex: ${CPIndex} CPIndexNext: ${CPIndexNext}`;
+
+    console.error(log.incompleteMap);
 
     console.log(Math.round(point.x), Math.round(point.y), thrust);
 
