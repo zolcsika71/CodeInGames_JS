@@ -13,9 +13,9 @@ const
         BORDER: 600,
         SCORED: 400
     },
-    Point = () => {
-        this.x = 0;
-        this.y = 0;
+    Point = (x, y) => {
+        this.x = x;
+        this.y = y;
         this.distSquare = (point) => {
 
             let x = Math.abs(this.x - point.x),
@@ -27,10 +27,9 @@ const
             return Math.sqrt(distSquare(point));
         };
     },
-    Pod = (name) => {
+    Pod = (angle) => {
         Point.call(this);
-        this.name = name;
-        this.angle = 0;
+        this.angle = angle;
         this.vx = 0;
         this.vy = 0;
         this.getAngle = (point) => {
@@ -208,8 +207,8 @@ const
     },
     findCoords = (nextCPPos) => {
         return map.findIndex(i => i.x === nextCPPos.x && i.y === nextCPPos.y);
-    };
-fillMap = (nextCPPos) => {
+    },
+    fillMap = (nextCPPos) => {
 
     let index = findCoords(nextCPPos);
 
@@ -222,24 +221,29 @@ fillMap = (nextCPPos) => {
         return map.length - 1;
     else
         return index;
-};
+},
+    convertAngle = (angle) => {
+
+        if (angle < 90 && angle >= -180)
+            angle = angle + 270;
+        else if (angle >= 90 && angle <= 180)
+            angle = angle - 90;
+
+        return angle;
+
+    };
 
 let myLastPos = {
         x: 0,
         y: 0
     },
-    myPod = new Pod('myPod'),
     CPNumber = 0,
+    myPod,
+    podInit = false,
     map = [],
     mapReady = false;
 
-// init myPod
-myPod.x = myPos.x;
-myPod.y = myPos.y;
-if (nextCP.angle < 90 && nextCP.angle >= -180)
-    myPod.angle = nextCP.angle + 270;
-else if (nextCP.angle >= 90 && nextCP.angle <= 180)
-    myPod.angle = nextCP.angle - 90;
+
 
 // game loop
 while (true) {
@@ -263,6 +267,7 @@ while (true) {
             y: parseInt(opponentData[1])
         },
         CP_angle = checkAngle(nextCP.angle),
+        convertedAngle = convertAngle(nextCP.angle),
         CP_dist = checkDist(nextCP.dist),
         MY_speed = checkSpeed(myLastPos, myPos),
         thrust = setThrust(CP_angle, CP_dist, MY_speed),
@@ -273,6 +278,12 @@ while (true) {
     else
         CPNumber = findCoords(nextCP.pos);
 
+    if (!podInit) {
+
+        myPod = new Pod(myPos.x, myPos.y, convertedAngle);
+        podInit = true;
+    }
+
 
     // returns (next turn will be): myPod.angle, myPod.x, myPod.y
     myPod.run(nextCP.pos, thrust); // Nodes => based on thrustToTry
@@ -282,7 +293,7 @@ while (true) {
     text.coord = `thrust: ${thrust} speed: ${MY_speed} angle: ${nextCP.angle} dist: ${CP_dist}`;
     text.CP = `CP x: ${nextCP.pos.x} CP y: ${nextCP.pos.y}`;
     text.sim = `SIM -> x: ${myPod.x} y: ${myPod.y} angle: ${myPod.angle}`;
-    text.checkSim = `${myPod.x === myPos.x ? 'OK' : myPod.x - myPos.x} ${myPod.y === myPos.y ? 'OK' : myPod.y - myPos.y} ${myPod.angle === nextCP.angle ? 'OK' : myPod.angle - nextCP.angle}`;
+    text.checkSim = `${myPod.x === myPos.x ? 'OK' : myPod.x - myPos.x} ${myPod.y === myPos.y ? 'OK' : myPod.y - myPos.y} ${myPod.angle === convertedAngle ? 'OK' : myPod.angle - convertedAngle}`;
 
     console.error(`${text.map}`);
     console.error(`${text.CP}`);

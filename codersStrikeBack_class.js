@@ -16,7 +16,7 @@ class Point {
         return Math.pow(x, 2) + Math.pow(y, 2);
     }
     dist (point) {
-        return Math.sqrt(distSquare(point));
+        return Math.sqrt(this.distSquare(point));
     }
 }
 
@@ -28,16 +28,14 @@ class Pod extends Point {
         this.vy = 0;
     }
     getAngle (point) {
-        let dist = this.dist,
+        let dist = this.dist(point),
             dx = (point.x - this.x) / dist,
             dy = (point.y - this.y) / dist,
             angle = Math.acos(dx) * 180 / Math.PI;
 
-        //console.error(`dist: ${dist}`);
-
         if (dy < 0)
             angle = 360 - angle;
-        return dist;
+        return angle;
     }
     diffAngle (point) {
         let angle = this.getAngle(point),
@@ -93,7 +91,6 @@ class Pod extends Point {
         this.move();
         this.end();
     }
-
 }
 
 
@@ -231,12 +228,44 @@ const
             return map.length - 1;
         else
             return index;
+    },
+    nextPos = () => {
+
+        simPosArray.push(simNextPos);
+
+        if (simPosArray.length === 2) {
+            simPos = simPosArray[0];
+            return true;
+        }
+        else if (simPosArray.length === 3) {
+            simPosArray = simPosArray.slice(1);
+            simPos = simPosArray[0];
+            return true;
+        } else
+            return false;
+    },
+    convertAngle = (angle) => {
+
+        if (angle < 90 && angle >= -180)
+            angle = angle + 270;
+        else if (angle >= 90 && angle <= 180)
+            angle = angle - 90;
+
+        return angle;
+
     };
 
 let myLastPos = {
         x: 0,
         y: 0
     },
+    simNextPos = {
+        x: 0,
+        y: 0,
+        angle: 0
+    },
+    simPosArray = [],
+    simPos = {},
     CPNumber = 0,
     myPod,
     podInit = false,
@@ -265,6 +294,7 @@ while (true) {
             y: parseInt(opponentData[1])
         },
         CP_angle = checkAngle(nextCP.angle),
+        convertedAngle = convertAngle(nextCP.angle),
         CP_dist = checkDist(nextCP.dist),
         MY_speed = checkSpeed(myLastPos, myPos),
         thrust = setThrust(CP_angle, CP_dist, MY_speed),
@@ -272,15 +302,9 @@ while (true) {
 
 
     if (!podInit) {
-        if (nextCP.angle < 90 && nextCP.angle >= -180)
-            nextCP.angle = nextCP.angle + 270;
-        else if (nextCP.angle >= 90 && nextCP.angle <= 180)
-            nextCP.angle = nextCP.angle - 90;
-
-        myPod = new Pod(myPos.x, myPos.y, nextCP.angle)
-
-    } else
+        myPod = new Pod(myPos.x, myPos.y, convertedAngle);
         podInit = true;
+    }
 
     if (!mapReady)
         CPNumber = fillMap(nextCP.pos);
@@ -288,22 +312,32 @@ while (true) {
         CPNumber = findCoords(nextCP.pos);
 
 
-    text.test = `getAngle: ${myPod.getAngle(nextCP.pos)}`;
-    console.error(`${text.test}`);
+    //text.test = `distSIM: ${myPod.dist(nextCP.pos)} distREAL: ${nextCP.dist}`;
+    //console.error(`${text.test}`);
 
     // returns (next turn will be): myPod.angle, myPod.x, myPod.y
     myPod.run(nextCP.pos, thrust); // Nodes => based on thrustToTry
 
+    simNextPos = {
+        x: myPod.x,
+        y: myPod.y,
+        angle : myPod.angle
+    };
 
-    text.map = `mapReady: ${mapReady} mapLength: ${map.length} x: ${map[CPNumber].x} y: ${map[CPNumber].y} CP#: ${CPNumber + 1}`;
-    text.coord = `thrust: ${thrust} speed: ${MY_speed} angle: ${nextCP.angle} dist: ${CP_dist}`;
-    text.CP = `CP x: ${nextCP.pos.x} CP y: ${nextCP.pos.y}`;
-    text.sim = `SIM -> x: ${myPod.x} y: ${myPod.y} angle: ${myPod.angle}`;
-    text.checkSim = `${myPod.x === myPos.x ? 'OK' : myPod.x - myPos.x} ${myPod.y === myPos.y ? 'OK' : myPod.y - myPos.y} ${myPod.angle === nextCP.angle ? 'OK' : myPod.angle - nextCP.angle}`;
 
-    //console.error(`${text.map}`);
-    //console.error(`${text.sim}`);
-    //console.error(`${text.checkSim}`);
+    if (nextPos()) {
+
+        text.map = `mapReady: ${mapReady} mapLength: ${map.length} x: ${map[CPNumber].x} y: ${map[CPNumber].y} CP#: ${CPNumber + 1}`;
+        text.coord = `thrust: ${thrust} speed: ${MY_speed} angle: ${nextCP.angle} dist: ${CP_dist}`;
+        text.CP = `CP x: ${nextCP.pos.x} CP y: ${nextCP.pos.y}`;
+        text.real = `REAL -> x: ${myPos.x} y: ${myPos.y} angle: ${convertedAngle}`;
+        text.sim = `SIM  -> x: ${simPos.x} y: ${simPos.y} angle: ${simPos.angle}`;
+        text.checkSim = `${simPos.x === myPos.x ? 'OK' : simPos.x - myPos.x} ${simPos.y === myPos.y ? 'OK' : simPos.y - myPos.y} ${simPos.angle === convertedAngle ? 'OK' : simPos.angle - convertedAngle}`;
+
+        console.error(`${text.real}`);
+        console.error(`${text.sim}`);
+        console.error(`${text.checkSim}`);
+    }
 
 
     console.log(`${nextCP.pos.x} ${nextCP.pos.y} ${thrust} ${thrust}`);
