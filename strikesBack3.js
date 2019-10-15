@@ -2,7 +2,7 @@
 
 const
     BOOST = 'BOOST',
-    boostRadius = 4000, // Minimum distance for activating boost
+    boostRadius = 2000, // Minimum distance for activating boost
     radius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
     // Distance steps for slowing down the racer
     brakeStep1 = 1300,

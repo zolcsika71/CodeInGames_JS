@@ -175,16 +175,16 @@ while (true) {
         thrust,
         text = {};
 
+    CP_angle = checkAngle(nextCP.angle);
+    CP_dist = checkDist(nextCP.dist);
+    MY_speed = checkSpeed(myLastPos, myPos);
+    thrust = setThrust(CP_angle, CP_dist, MY_speed);
+
 
 
     if (!mapReady) {
         CPNumber = fillMap(nextCP.pos);
-        CP_angle = checkAngle(nextCP.angle);
-        CP_dist = checkDist(nextCP.dist);
-        MY_speed = checkSpeed(myLastPos, myPos);
-        thrust = setThrust(CP_angle, CP_dist, MY_speed);
-    }
-    else {
+    } else {
         CPNumber = findCoords(nextCP.pos);
 
 
