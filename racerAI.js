@@ -101,6 +101,9 @@ var calculateGoal = (current, goal) => {
         y: m * x2 + b
     };
 
+    console.error(`m: ${Math.round(m)} b: ${Math.round(b)} point1_x: ${Math.round(point1.x)} point1_y: ${Math.round(point1.y)} point2_x: ${Math.round(point2.x)} point2_y: ${Math.round(point2.y)} m_y: ${goal.y - current.y} m_x: ${goal.x - current.x}`);
+
+
     // Return the point that is closer to the racer
     if (distanceBetween(current, point1) < distanceBetween(current, point2)) {
         return point1;
