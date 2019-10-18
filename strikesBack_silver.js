@@ -4,32 +4,32 @@ const
     collusionSpeed = 450, // Minimum speed for activating shield
     collusionDist = 900, // Maximum distance for activating shield
     boostRadius = 4000, // Minimum distance for activating boost
-    targetRadius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
+    targetRadius = 200, // Distance starting from the middle of the checkpoint for the racer to aim for
     // Distance steps for slowing down the racer
     breakStep = {
         1: {
             dist: targetRadius,
-            thrust: 10
+            thrust: 25
         },
         2: {
             dist: 600,
-            thrust: 20
+            thrust: 30
         },
         3: {
             dist: 800,
-            thrust: 30
+            thrust: 35
         },
         4: {
             dist: 1100,
-            thrust: 40
+            thrust: 50
         },
         5: {
             dist: 1300,
-            thrust: 50
+            thrust: 75
         },
         6: {
             dist: 2000,
-            thrust: 100
+            thrust: 90
         },
         7: {
             dist: 16000,
@@ -47,6 +47,7 @@ let mapReady = false,
     angle,
     collusion,
     myPod,
+    firstRound = true,
     log = {},
     myLastPos = {},
     boostAvailable = true,
@@ -88,19 +89,24 @@ let mapReady = false,
 
         console.error(`opponent_dist: ${myDistToOpponent}`);
 
-        return myDistToOpponent < collusionDist && speed > collusionSpeed;
+        return myDistToOpponent < collusionDist && speed > collusionSpeed && opponentDistToNextCP > myDistToNextCP;
         //return false;
 
     },
     setThrust = (dist, speed, angle) => {
 
+        let thrust;
+
+        angle = angle <= 9 ? 0 : angle / 10;
         for (let step in breakStep) {
 
             let breakObject = breakStep[step];
 
             if (dist <= breakObject.dist) {
-                console.error(`breakObject.dist: ${breakObject.dist} breakObject.thrust: ${breakObject.thrust} dist: ${dist} speed: ${speed}`);
-                return Math.round(Math.abs(speed / angle + breakObject.thrust - breakObject.thrust));
+                console.error(`breakObject.dist: ${breakObject.dist} breakObject.thrust: ${breakObject.thrust} dist: ${dist} speed: ${speed} angle: ${angle}`);
+                thrust = Math.round(Math.abs((speed * angle) / breakObject.thrust - breakObject.thrust));
+                thrust = thrust > 100 ? 100 : thrust;
+                return thrust;
             }
         }
     };
@@ -121,12 +127,12 @@ class Point {
 
 class Pod extends Point {
 
-    constructor (position, target, angle) {
+    constructor (position, target, angle = 0) {
         super(position);
         this.target = target;
         this.angle = angle;
     }
-    adjustThrust (speed, angle) {
+    adjustThrust (speed) {
 
         // If angle is too wide
         if (this.angle >= 90 || this.angle <= -90)
@@ -138,7 +144,7 @@ class Pod extends Point {
                 boostAvailable = false;
                 return 'BOOST';
             } else
-                return setThrust(dist, speed, angle);
+                return setThrust(dist, speed, this.angle);
         }
     }
     calculateGoal () {
@@ -166,16 +172,23 @@ class Pod extends Point {
 
         return point2;
     }
-    getAngle (point) {
-        let dist = this.dist(point),
-            dx = (point.x - this.x) / dist,
-            dy = (point.y - this.y) / dist,
+    getAngle (target) {
+        let dist = this.dist(target),
+            dx = (target.x - this.x) / dist,
+            dy = (target.y - this.y) / dist,
             angle = Math.acos(dx) * 180 / Math.PI;
 
         if (dy < 0)
             angle = 360 - angle;
 
-        return Math.abs(Math.round(angle));
+        if (angle <= 359 && angle > 90)
+            angle = angle - 270;
+        else if (angle >= 0 && angle <= 90)
+            angle = angle + 90;
+
+        console.error(`converted_angle: ${angle}`);
+
+        return Math.round(angle);
     }
 }
 
@@ -205,25 +218,30 @@ while (true) {
 
     if (!mapReady) {
         CPIndex = fillMap(nextCP.pos);
-        myPod = new Pod(myPos, nextCP.pos, nextCP.angle);
+        myPod = new Pod(myPos, nextCP.pos);
         point = myPod.calculateGoal();
     } else {
         CPIndex = findCoords(nextCP.pos);
         CPIndexNext = CPIndex + 1 === map.length ? 0 : CPIndex + 1;
-        myPod = new Pod(map[CPIndexNext], nextCP.pos, nextCP.angle);
+        myPod = new Pod(map[CPIndexNext], nextCP.pos);
         point = myPod.calculateGoal();
         //log.map = `mapReady: ${mapReady} mapLength: ${map.length} next_x: ${map[CPIndexNext].x} next_y: ${map[CPIndexNext].y} CPIndexNext: ${CPIndexNext}`;
         //console.error(log.map);
     }
 
+    if (firstRound) {
+        myLastPos.x = myPos.x;
+        myLastPos.y = myPos.y;
+        firstRound = false;
+    }
+
     //console.error(`${myPos} ${point} ${nextCP.angle}`);
-    angle = myPod.getAngle(point);
-    myPod = new Pod(myPos, point, angle);
+    myPod = new Pod(myPos, point, nextCP.angle);
     speed = countSpeed(myLastPos, myPos);
     collusion = checkCollusion(myPos, opponentPos, nextCP.pos, speed);
-    thrust = collusion ? 'SHIELD' : myPod.adjustThrust(speed, angle);
+    thrust = collusion ? 'SHIELD' : myPod.adjustThrust(speed);
 
-    log.basic = `nextCP_dist: ${nextCP.dist} nextCP_angle: ${nextCP.angle} thrust: ${thrust} adjTHR: ${myPod.adjustThrust(speed)} speed: ${speed} collusion: ${collusion}`;
+    log.basic = `nextCP_dist: ${nextCP.dist} nextCP_angle: ${nextCP.angle} thrust: ${thrust} speed: ${speed} collusion: ${collusion}`;
     log.incompleteMap = `mapReady: ${mapReady} mapLength: ${map.length} x: ${map[CPIndex].x} y: ${map[CPIndex].y} CPIndex: ${CPIndex} CPIndexNext: ${CPIndexNext}`;
 
 
