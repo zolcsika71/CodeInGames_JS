@@ -1,10 +1,11 @@
 "use strict";
 
 const
-    collusionSpeed = 450, // Minimum speed for activating shield
-    collusionDist = 900, // Maximum distance for activating shield
-    boostRadius = 4000, // Minimum distance for activating boost
-    targetRadius = 200, // Distance starting from the middle of the checkpoint for the racer to aim for
+    collusionSpeed = 200, // Minimum speed for activating shield
+    collusionDistToOpp = 900, // Maximum distance for activating shield
+    collusionDistToNextCP = 1600, //
+    boostDist = 4000, // Minimum distance for activating boost
+    targetRadius = 300, // Distance starting from the middle of the checkpoint for the racer to aim for
     // Distance steps for slowing down the racer
     breakStep = {
         1: {
@@ -28,8 +29,8 @@ const
             thrust: 75
         },
         6: {
-            dist: 2000,
-            thrust: 90
+            dist: 1600,
+            thrust: 100
         },
         7: {
             dist: 16000,
@@ -89,7 +90,8 @@ let mapReady = false,
 
         console.error(`opponent_dist: ${myDistToOpponent}`);
 
-        return myDistToOpponent < collusionDist && speed > collusionSpeed && opponentDistToNextCP > myDistToNextCP;
+        return myDistToOpponent < collusionDistToOpp && speed > collusionSpeed;
+            //&& (myDistToNextCP < collusionDistToNextCP || myDistToNextCP > boostDist + 500);
         //return false;
 
     },
@@ -122,56 +124,6 @@ class Point {
 
         return Math.round(Math.hypot(x, y));
     }
-
-}
-
-class Pod extends Point {
-
-    constructor (position, target, angle = 0) {
-        super(position);
-        this.target = target;
-        this.angle = angle;
-    }
-    adjustThrust (speed) {
-
-        // If angle is too wide
-        if (this.angle >= 90 || this.angle <= -90)
-            return 0;
-        else {
-            let dist = this.dist(this.target);
-
-            if (dist > boostRadius && boostAvailable && this.angle === 0 && mapReady) {
-                boostAvailable = false;
-                return 'BOOST';
-            } else
-                return setThrust(dist, speed, this.angle);
-        }
-    }
-    calculateGoal () {
-
-        let m = this.target.x - this.x === 0 ? 1000 : (this.target.y - this.y) / (this.target.x - this.x),
-            b = this.target.y - m * this.target.x,
-            // Calculate the two interference points
-            x1 = (this.target.x + targetRadius / Math.sqrt(1 + m * m)),
-            x2 = (this.target.x - targetRadius / Math.sqrt(1 + m * m)),
-            point1 = {
-                x: Math.round(x1),
-                y: Math.round(m * x1 + b)
-            },
-            point2 = {
-                x: Math.round(x2),
-                y: Math.round(m * x2 + b)
-            };
-
-        log.goal = `m: ${Math.round(m)} b: ${Math.round(b)} point1_x: ${point1.x} point1_y: ${point1.y} point2_x: ${point2.x} point2_y: ${point2.y} m_y: ${this.target.y - this.y} m_x: ${this.target.x - this.x}`;
-
-        //console.error(log.goal);
-
-        if (this.dist(point1) < this.dist(point2))
-            return point1;
-
-        return point2;
-    }
     getAngle (target) {
         let dist = this.dist(target),
             dx = (target.x - this.x) / dist,
@@ -189,6 +141,59 @@ class Pod extends Point {
         console.error(`converted_angle: ${angle}`);
 
         return Math.round(angle);
+    }
+
+}
+
+class Pod extends Point {
+
+    constructor (position, target, angle = 0) {
+        super(position);
+        this.target = target;
+        this.angle = angle;
+    }
+    adjustThrust (speed) {
+
+        // If angle is too wide
+        if (Math.abs(this.angle) >= 90)
+            return 0;
+        else {
+            let dist = this.dist(this.target);
+
+            if (dist > boostDist && boostAvailable && this.angle === 0 && mapReady) {
+                boostAvailable = false;
+                return 'BOOST';
+            } else
+                return setThrust(dist, speed, this.angle);
+        }
+    }
+    calculateGoal () {
+
+        let m = this.target.x - this.x === 0 ? 1000 : (this.target.y - this.y) / (this.target.x - this.x),
+            b = this.target.y - m * this.target.x,
+            angle = Math.abs(this.angle) > 90 ? 90 : Math.abs(this.angle),
+            targetR = targetRadius - angle * 3,
+            // Calculate the two interference points
+            x1 = (this.target.x + targetR / Math.sqrt(1 + m * m)),
+            x2 = (this.target.x - targetR / Math.sqrt(1 + m * m)),
+            point1 = {
+                x: Math.round(x1),
+                y: Math.round(m * x1 + b)
+            },
+            point2 = {
+                x: Math.round(x2),
+                y: Math.round(m * x2 + b)
+            };
+
+        log.goal = `m: ${Math.round(m)} b: ${Math.round(b)} point1_x: ${point1.x} point1_y: ${point1.y} point2_x: ${point2.x} point2_y: ${point2.y} m_y: ${this.target.y - this.y} m_x: ${this.target.x - this.x}`;
+        log.radius = `targetRadius: ${targetR}`;
+
+        console.error(log.radius);
+
+        if (this.dist(point1) < this.dist(point2))
+            return point1;
+
+        return point2;
     }
 }
 
@@ -218,12 +223,12 @@ while (true) {
 
     if (!mapReady) {
         CPIndex = fillMap(nextCP.pos);
-        myPod = new Pod(myPos, nextCP.pos);
+        myPod = new Pod(myPos, nextCP.pos, nextCP.angle);
         point = myPod.calculateGoal();
     } else {
         CPIndex = findCoords(nextCP.pos);
         CPIndexNext = CPIndex + 1 === map.length ? 0 : CPIndex + 1;
-        myPod = new Pod(map[CPIndexNext], nextCP.pos);
+        myPod = new Pod(map[CPIndexNext], nextCP.pos, nextCP.angle);
         point = myPod.calculateGoal();
         //log.map = `mapReady: ${mapReady} mapLength: ${map.length} next_x: ${map[CPIndexNext].x} next_y: ${map[CPIndexNext].y} CPIndexNext: ${CPIndexNext}`;
         //console.error(log.map);
