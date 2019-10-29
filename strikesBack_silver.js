@@ -7,40 +7,28 @@ const
     boostDist = 4000, // Minimum distance for activating boost
     targetRadius = 300, // Distance starting from the middle of the checkpoint for the racer to aim for
     // Distance steps for slowing down the racer
-    breakStep = {
-        1: {
-            dist: targetRadius,
-            thrust: 25
+    gauss = {
+        break: {
+            a: 100, // max value
+            b: 0, // middle
+            c: 30 // bell width
         },
-        2: {
-            dist: 600,
-            thrust: 30
+        far: {
+            a: 100,
+            b: 0,
+            c: 200
         },
-        3: {
-            dist: 800,
-            thrust: 35
-        },
-        4: {
-            dist: 1100,
-            thrust: 50
-        },
-        5: {
-            dist: 1300,
-            thrust: 75
-        },
-        6: {
-            dist: 1600,
-            thrust: 100
-        },
-        7: {
-            dist: 16000,
-            thrust: 100
+        targetRadius: {
+            a: targetRadius,
+            b: 0,
+            c: 90
         }
-    };
+    },
+    breakDist = 1600;
 
 let mapReady = false,
-    gauss,
-    returnValue,
+    currentGauss,
+    value,
     map = [],
     CPIndex,
     CPIndexNext,
@@ -100,41 +88,24 @@ let mapReady = false,
         console.error(`opponent_dist: ${myDistToOpponent}`);
 
         return myDistToOpponent < collusionDistToOpp && mySpeed > opponentSpeed * 1.2;
-            //&& (myDistToNextCP < collusionDistToNextCP || myDistToNextCP > boostDist + 500);
+        //&& (myDistToNextCP < collusionDistToNextCP || myDistToNextCP > boostDist + 500);
         //return false;
 
     },
-    gaussValue = (gauss, angle) => Math.round(gauss.a/Math.pow(Math.E, (Math.pow(angle - gauss.b, 2)) / (2 * gauss.c * gauss.c))),
+    gaussValue = (gauss, value) => Math.round(gauss.a / Math.pow(Math.E, (Math.pow(value - gauss.b, 2)) / (2 * gauss.c * gauss.c))),
     setThrust = (dist, speed, angle) => {
 
-            let breakStepLength = Object.keys(breakStep).length.toString();
-
-        for (let step in breakStep) {
-
-            let breakObject = breakStep[step];
-
-            if (dist <= breakObject.dist) {
-                if (step === breakStepLength) {
-                    gauss = {
-                            a: 100,
-                            b: 0,
-                            c: 30
-                        };
-                    returnValue = gaussValue(gauss, angle);
-                    console.error(`gaussValue: ${returnValue}`);
-                    return returnValue;
-                }
-                else {
-                    console.error(`breakObject.dist: ${breakObject.dist} breakObject.thrust: ${breakObject.thrust} dist: ${dist} speed: ${speed} angle: ${angle}`);
-
-                    thrust = Math.round((1 / speed) * breakObject.thrust);
-                    console.error(`returnThrust: ${thrust}`);
-                    thrust = thrust > 100 ? 100 : thrust;
-                    return thrust;
-                }
+            if (dist >= breakDist) {
+                currentGauss = gauss.far;
+                value = angle;
+            } else {
+                currentGauss = gauss.break;
+                value = speed;
             }
-        }
-    };
+            thrust = gaussValue(currentGauss, value);
+            console.error(`gaussValue: ${thrust}`);
+            return thrust;
+        };
 
 class Point {
     constructor (position) {
@@ -192,10 +163,11 @@ class Pod extends Point {
     }
     calculateGoal () {
 
+        currentGauss = gauss.targetRadius;
+
         let m = this.target.x - this.x === 0 ? 1000 : (this.target.y - this.y) / (this.target.x - this.x),
             b = this.target.y - m * this.target.x,
-            angle = Math.abs(this.angle) > 90 ? 90 : Math.abs(this.angle),
-            targetR = targetRadius - angle * 3,
+            targetR = gaussValue(currentGauss, this.angle),
             // Calculate the two interference points
             x1 = (this.target.x + targetR / Math.sqrt(1 + m * m)),
             x2 = (this.target.x - targetR / Math.sqrt(1 + m * m)),
