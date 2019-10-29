@@ -1,7 +1,7 @@
 "use strict";
 
 const
-    collusionSpeed = 200, // Minimum speed for activating shield
+    collusionSpeed = 200, // Minimum mySpeed for activating shield
     collusionDistToOpp = 900, // Maximum distance for activating shield
     collusionDistToNextCP = 1600, //
     boostDist = 4000, // Minimum distance for activating boost
@@ -39,18 +39,22 @@ const
     };
 
 let mapReady = false,
+    gauss,
+    returnValue,
     map = [],
     CPIndex,
     CPIndexNext,
     point,
     thrust,
-    speed,
+    mySpeed,
+    opponentSpeed,
     angle,
     collusion,
     myPod,
     firstRound = true,
     log = {},
     myLastPos = {},
+    opponentLastPos = {},
     boostAvailable = true,
     findCoords = (nextCPPos) => {
         return map.findIndex(i => i.x === nextCPPos.x && i.y === nextCPPos.y);
@@ -69,18 +73,23 @@ let mapReady = false,
         else
             return index;
     },
-    countSpeed = (position, target) => {
+    countSpeed = (position, target, opponent = false) => {
 
         let myPosition = new Point(position),
             speed = myPosition.dist(target);
 
-        myLastPos.x = target.x;
-        myLastPos.y = target.y;
+        if (opponent) {
+            opponentLastPos.x = target.x;
+            opponentLastPos.y = target.y;
+        } else {
+            myLastPos.x = target.x;
+            myLastPos.y = target.y;
+        }
 
         return Math.round(speed);
 
     },
-    checkCollusion = (myPos, opponentPos, nextCP_pos, speed) => {
+    checkCollusion = (myPos, opponentPos, nextCP_pos, mySpeed, opponentSpeed) => {
 
         let myPosition = new Point(myPos),
             myDistToOpponent = myPosition.dist(opponentPos),
@@ -90,25 +99,39 @@ let mapReady = false,
 
         console.error(`opponent_dist: ${myDistToOpponent}`);
 
-        return myDistToOpponent < collusionDistToOpp && speed > collusionSpeed;
+        return myDistToOpponent < collusionDistToOpp && mySpeed > opponentSpeed * 1.2;
             //&& (myDistToNextCP < collusionDistToNextCP || myDistToNextCP > boostDist + 500);
         //return false;
 
     },
+    gaussValue = (gauss, angle) => Math.round(gauss.a/Math.pow(Math.E, (Math.pow(angle - gauss.b, 2)) / (2 * gauss.c * gauss.c))),
     setThrust = (dist, speed, angle) => {
 
-        let thrust;
+            let breakStepLength = Object.keys(breakStep).length.toString();
 
-        angle = angle <= 9 ? 0 : angle / 10;
         for (let step in breakStep) {
 
             let breakObject = breakStep[step];
 
             if (dist <= breakObject.dist) {
-                console.error(`breakObject.dist: ${breakObject.dist} breakObject.thrust: ${breakObject.thrust} dist: ${dist} speed: ${speed} angle: ${angle}`);
-                thrust = Math.round(Math.abs((speed * angle) / breakObject.thrust - breakObject.thrust));
-                thrust = thrust > 100 ? 100 : thrust;
-                return thrust;
+                if (step === breakStepLength) {
+                    gauss = {
+                            a: 100,
+                            b: 0,
+                            c: 30
+                        };
+                    returnValue = gaussValue(gauss, angle);
+                    console.error(`gaussValue: ${returnValue}`);
+                    return returnValue;
+                }
+                else {
+                    console.error(`breakObject.dist: ${breakObject.dist} breakObject.thrust: ${breakObject.thrust} dist: ${dist} speed: ${speed} angle: ${angle}`);
+
+                    thrust = Math.round((1 / speed) * breakObject.thrust);
+                    console.error(`returnThrust: ${thrust}`);
+                    thrust = thrust > 100 ? 100 : thrust;
+                    return thrust;
+                }
             }
         }
     };
@@ -237,16 +260,19 @@ while (true) {
     if (firstRound) {
         myLastPos.x = myPos.x;
         myLastPos.y = myPos.y;
+        opponentLastPos.x = opponentPos.x;
+        opponentLastPos.y = opponentPos.y;
         firstRound = false;
     }
 
     //console.error(`${myPos} ${point} ${nextCP.angle}`);
     myPod = new Pod(myPos, point, nextCP.angle);
-    speed = countSpeed(myLastPos, myPos);
-    collusion = checkCollusion(myPos, opponentPos, nextCP.pos, speed);
-    thrust = collusion ? 'SHIELD' : myPod.adjustThrust(speed);
+    mySpeed = countSpeed(myLastPos, myPos);
+    opponentSpeed = countSpeed(opponentLastPos, opponentPos, true);
+    collusion = checkCollusion(myPos, opponentPos, nextCP.pos, mySpeed, opponentSpeed);
+    thrust = collusion ? 'SHIELD' : myPod.adjustThrust(mySpeed);
 
-    log.basic = `nextCP_dist: ${nextCP.dist} nextCP_angle: ${nextCP.angle} thrust: ${thrust} speed: ${speed} collusion: ${collusion}`;
+    log.basic = `nextCP_dist: ${nextCP.dist} nextCP_angle: ${nextCP.angle} thrust: ${thrust} speed: ${mySpeed} collusion: ${collusion}`;
     log.incompleteMap = `mapReady: ${mapReady} mapLength: ${map.length} x: ${map[CPIndex].x} y: ${map[CPIndex].y} CPIndex: ${CPIndex} CPIndexNext: ${CPIndexNext}`;
 
 
