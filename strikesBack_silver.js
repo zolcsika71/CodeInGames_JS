@@ -163,11 +163,9 @@ class Pod extends Point {
     }
     calculateGoal () {
 
-        currentGauss = gauss.targetRadius;
-
         let m = this.target.x - this.x === 0 ? 1000 : (this.target.y - this.y) / (this.target.x - this.x),
             b = this.target.y - m * this.target.x,
-            targetR = gaussValue(currentGauss, this.angle),
+            targetR = gaussValue(gauss.targetRadius, this.angle),
             // Calculate the two interference points
             x1 = (this.target.x + targetR / Math.sqrt(1 + m * m)),
             x2 = (this.target.x - targetR / Math.sqrt(1 + m * m)),

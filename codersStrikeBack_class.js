@@ -3,6 +3,14 @@
  * the standard input according to the problem statement.
  **/
 
+class Collision {
+    constructor(unitA, unitB, time) {
+        this.unitA = unitA;
+        this.uintB = unitB;
+        this.time = time;
+    }
+}
+
 class Point {
     constructor(x, y) {
         this.x = x;
@@ -10,16 +18,91 @@ class Point {
     }
     distSquare (point) {
 
-        let x = Math.abs(this.x - point.x),
-            y = Math.abs(this.y - point.y);
+        let x = this.x - point.x,
+            y = this.y - point.y;
 
         return Math.pow(x, 2) + Math.pow(y, 2);
     }
     dist (point) {
         return Math.sqrt(this.distSquare(point));
     }
+    closest (pointA, pointB) { // find the closest point on a line (described by two points) to my point.
+        let da = pointB.y - pointA.y,
+            db = pointA.x - pointB.x,
+            c1 = da * pointA.x + db * pointA.y,
+            c2 = -db * this.x + da * this.y,
+            det = Math.pow(da, 2) + Math.pow(db,2),
+            cx,
+            cy;
+        if (det !== 0) { // point on the line
+            cx = (da * c1 - db * c2) / det;
+            cy = (da * c2 + db * c1) / det;
+        } else { // The point is already on the line
+            cx = this.x;
+            cy = this.y;
+        }
+        return new Point(cx, cy);
+    }
 }
 
+class Unit extends Point {
+    constructor (x, y, id, radius, vx, vy) {
+        super(x, y);
+        this.id = id;
+        this.radius = radius;
+        this.vx = vx;
+        this.vy = vy;
+    }
+    collision (unit) {
+
+        if (this.vx === unit.vx && this.vy === unit.vy) // Optimisation. Objects with the same speed will never collide
+            return null;
+
+        let distanceSquare = this.distSquare(unit), // Square of the distance
+            sumRadiusSquare = Math.pow(this.radius + unit.radius, 2); // Sum of the radius squared
+
+        if (distanceSquare < sumRadiusSquare)  // Objects are already touching each other. We have an immediate collision.
+            return new Collision(this, unit, 0);
+
+        // We place ourselves in the reference frame of unit. unit is therefore stationary and is at (0,0)
+        let time,
+            x = this.x - unit.x,
+            y = this.y - unit.y,
+            vx = this.vx - unit.vx,
+            vy = this.vy - unit.vy,
+            myPoint = new Point(x, y),
+            unitPoint = new Point(0, 0),
+            closestPoint = unitPoint.closest(myPoint, new Point(x + vx, y + vy)), // We look for the closest point to u (which is in (0,0)) on the line described by our speed vector
+            unitPointDist = unitPoint.distSquare(closestPoint), // Square of the distance between unit and the closest point to unit on the line described by our speed vector
+            myPointDist = myPoint.distSquare(closestPoint); // Square of the distance between us and that point
+
+        // If the distance between u and this line is less than the sum of the radii, there might be a collision
+        if (unitPointDist < sumRadiusSquare) {
+            let length = Math.sqrt(Math.pow(vx, 2) + Math.pow(vy, 2)), // Our speed on the line
+                backDist = Math.sqrt(sumRadiusSquare - unitPointDist);
+
+            // We move along the line to find the point of impact
+            closestPoint.x = closestPoint.x - backDist * (vx / length);
+            closestPoint.y = closestPoint.y - backDist * (vy / length);
+
+            // If the point is now further away it means we are not going the right way, therefore the collision won't happen
+            if (myPoint.distSquare(closestPoint) > myPointDist)
+                return null;
+
+            myPointDist = myPoint.dist(closestPoint);
+
+            if (myPointDist > length) // The point of impact is further than what we can travel in one turn
+                return null;
+
+            time = myPointDist / length;
+
+            return new Collision(this, unit, time)
+        }
+        return null;
+    }
+}
+
+/*
 class Pod extends Point {
     constructor(x, y, angle) {
         super(x, y);
@@ -92,254 +175,5 @@ class Pod extends Point {
         this.end();
     }
 }
+*/
 
-
-const
-    BOOST_DIST = 6000,
-    CP_ANGLE = [0, 9, 18, 27, 36, 45, 54, 63, 72, 81, 90],
-    THRUST = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 'BOOST'],
-    CP_DIST = {
-        MIDDLE: 2000,
-        CLOSE: 1000,
-        BORDER: 600,
-        SCORED: 400
-    },
-    angleToThrust = (CP_angle) => {
-
-        let thrust;
-
-        if (CP_angle <= 1)
-            thrust = THRUST[10];
-        else if (CP_angle === 2)
-            thrust = THRUST[9];
-        else if (CP_angle === 3)
-            thrust = THRUST[8];
-        else if (CP_angle === 4)
-            thrust = THRUST[7];
-        else if (CP_angle === 5)
-            thrust = THRUST[6];
-        else if (CP_angle === 6)
-            thrust = THRUST[5];
-        else if (CP_angle === 7)
-            thrust = THRUST[4];
-        else if (CP_angle === 8)
-            thrust = THRUST[3];
-        else if (CP_angle === 9)
-            thrust = THRUST[2];
-        else if (CP_angle === 10)
-            thrust = THRUST[1];
-        else if (CP_angle === 10)
-            thrust = THRUST[1];
-
-        return thrust;
-
-    },
-    checkAngle = (nextCP_Angle) => {
-
-        let returnValue;
-
-        for (let i = 0; i < CP_ANGLE.length; i++) {
-            if (nextCP_Angle <= CP_ANGLE[i] && nextCP_Angle >= CP_ANGLE[i] * -1) {
-                returnValue = i;
-                break;
-            }
-        }
-        if (returnValue)
-            return returnValue;
-        else
-            return false;
-    },
-    checkDist = (nextCP_dist) => {
-        let NEXT_CP_DIST = {
-            BOOST_DIST: nextCP_dist > BOOST_DIST,
-            FAR: nextCP_dist >= CP_DIST.MIDDLE,
-            MIDDLE: nextCP_dist < CP_DIST.MIDDLE && nextCP_dist >= CP_DIST.CLOSE,
-            CLOSE: nextCP_dist < CP_DIST.CLOSE && nextCP_dist >= CP_DIST.BORDER,
-            SLIP: nextCP_dist < CP_DIST.BORDER && nextCP_dist > CP_DIST.SCORED
-        };
-
-        for (let dist in NEXT_CP_DIST)
-            if (NEXT_CP_DIST[dist])
-                return dist;
-    },
-    checkSpeed = (myLastPos, myPos) => {
-
-        let x = Math.abs(myLastPos.x - myPos.x),
-            y = Math.abs(myLastPos.y - myPos.y),
-            speed = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
-
-        myLastPos.x = myPos.x;
-        myLastPos.y = myPos.y;
-
-        return Math.round(speed);
-    },
-    setThrust = (CP_angle, CP_dist, MY_speed) => {
-
-        let thrust;
-
-        switch (CP_dist) {
-
-            case 'BOOST_DIST':
-                if (CP_angle <= 1) {
-                    thrust = THRUST[11];
-                } else
-                    thrust = angleToThrust(CP_angle);
-                break;
-            case 'FAR':
-                thrust = angleToThrust(CP_angle);
-                break;
-            case 'MIDDLE':
-                if (MY_speed >= 450 && CP_angle <= 2)
-                    thrust = THRUST[0];
-                else
-                    thrust = angleToThrust(CP_angle);
-                break;
-            case 'CLOSE':
-                if (MY_speed < 300 && CP_angle <= 1)
-                    thrust = THRUST[7];
-                else
-                    thrust = THRUST[0];
-                break;
-            case 'SLIP':
-                if (MY_speed < 100)
-                    thrust = THRUST[3];
-                else
-                    thrust = THRUST[0];
-                break;
-            default:
-                thrust = THRUST[11];
-
-        }
-        return thrust;
-    },
-    findCoords = (nextCPPos) => {
-        return map.findIndex(i => i.x === nextCPPos.x && i.y === nextCPPos.y);
-    },
-    fillMap = (nextCPPos) => {
-
-        let index = findCoords(nextCPPos);
-
-        if (index === -1)
-            map.push(nextCPPos);
-        else if (index !== map.length - 1)
-            mapReady = true;
-
-        if (index === -1)
-            return map.length - 1;
-        else
-            return index;
-    },
-    nextPos = () => {
-
-        simPosArray.push(simNextPos);
-
-        if (simPosArray.length === 2) {
-            simPos = simPosArray[0];
-            return true;
-        }
-        else if (simPosArray.length === 3) {
-            simPosArray = simPosArray.slice(1);
-            simPos = simPosArray[0];
-            return true;
-        } else
-            return false;
-    },
-    convertAngle = (angle) => {
-
-        if (angle < 90 && angle >= -180)
-            angle = angle + 270;
-        else if (angle >= 90 && angle <= 180)
-            angle = angle - 90;
-
-        return angle;
-
-    };
-
-let myLastPos = {
-        x: 0,
-        y: 0
-    },
-    simNextPos = {
-        x: 0,
-        y: 0,
-        angle: 0
-    },
-    simPosArray = [],
-    simPos = {},
-    CPNumber = 0,
-    myPod,
-    podInit = false,
-    map = [],
-    mapReady = false;
-
-// game loop
-while (true) {
-
-    let myData = readline().split(' '),
-        nextCP = {
-            pos: {
-                x: parseInt(myData[2]), // x position of the next check point
-                y: parseInt(myData[3]) // y position of the next check point
-            },
-            dist: parseInt(myData[4]), // distance to the next checkpoint
-            angle: parseInt(myData[5]) // angle between your pod orientation and the direction of the next checkpoint
-        },
-        myPos = {
-            x: parseInt(myData[0]), // my x pos
-            y: parseInt(myData[1]) // my y pos
-        },
-        opponentData = readline().split(' '),
-        opponentPos = {
-            x: parseInt(opponentData[0]),
-            y: parseInt(opponentData[1])
-        },
-        CP_angle = checkAngle(nextCP.angle),
-        convertedAngle = convertAngle(nextCP.angle),
-        CP_dist = checkDist(nextCP.dist),
-        MY_speed = checkSpeed(myLastPos, myPos),
-        thrust = setThrust(CP_angle, CP_dist, MY_speed),
-        text = {};
-
-
-    if (!podInit) {
-        myPod = new Pod(myPos.x, myPos.y, convertedAngle);
-        podInit = true;
-    }
-
-    if (!mapReady)
-        CPNumber = fillMap(nextCP.pos);
-    else
-        CPNumber = findCoords(nextCP.pos);
-
-
-    //text.test = `distSIM: ${myPod.dist(nextCP.pos)} distREAL: ${nextCP.dist}`;
-    //console.error(`${text.test}`);
-
-    // returns (next turn will be): myPod.angle, myPod.x, myPod.y
-    myPod.run(nextCP.pos, thrust); // Nodes => based on thrustToTry
-
-    simNextPos = {
-        x: myPod.x,
-        y: myPod.y,
-        angle : myPod.angle
-    };
-
-
-    if (nextPos()) {
-
-        text.map = `mapReady: ${mapReady} mapLength: ${map.length} x: ${map[CPNumber].x} y: ${map[CPNumber].y} CP#: ${CPNumber + 1}`;
-        text.coord = `thrust: ${thrust} speed: ${MY_speed} angle: ${nextCP.angle} dist: ${CP_dist}`;
-        text.CP = `CP x: ${nextCP.pos.x} CP y: ${nextCP.pos.y}`;
-        text.real = `REAL -> x: ${myPos.x} y: ${myPos.y} angle: ${convertedAngle}`;
-        text.sim = `SIM  -> x: ${simPos.x} y: ${simPos.y} angle: ${simPos.angle}`;
-        text.checkSim = `${simPos.x === myPos.x ? 'OK' : simPos.x - myPos.x} ${simPos.y === myPos.y ? 'OK' : simPos.y - myPos.y} ${simPos.angle === convertedAngle ? 'OK' : simPos.angle - convertedAngle}`;
-
-        console.error(`${text.real}`);
-        console.error(`${text.sim}`);
-        console.error(`${text.checkSim}`);
-    }
-
-
-    console.log(`${nextCP.pos.x} ${nextCP.pos.y} ${thrust} ${thrust}`);
-
-}
