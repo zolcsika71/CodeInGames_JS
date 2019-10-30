@@ -1,13 +1,15 @@
-/**
- * Auto-generated code below aims at helping you parse
- * the standard input according to the problem statement.
- **/
+"use strict";
 
 class Collision {
     constructor(unitA, unitB, time) {
         this.unitA = unitA;
         this.uintB = unitB;
         this.time = time;
+    }
+}
+class Checkpoint extends Unit {
+    constructor(x, y, id, radius, vx, vy) {
+        super(x, y, id, radius, vx, vy)
     }
 }
 
@@ -31,7 +33,7 @@ class Point {
             db = pointA.x - pointB.x,
             c1 = da * pointA.x + db * pointA.y,
             c2 = -db * this.x + da * this.y,
-            det = Math.pow(da, 2) + Math.pow(db,2),
+            det = Math.pow(da, 2) + Math.pow(db, 2),
             cx,
             cy;
         if (det !== 0) { // point on the line
@@ -65,8 +67,7 @@ class Unit extends Point {
             return new Collision(this, unit, 0);
 
         // We place ourselves in the reference frame of unit. unit is therefore stationary and is at (0,0)
-        let time,
-            x = this.x - unit.x,
+        let x = this.x - unit.x,
             y = this.y - unit.y,
             vx = this.vx - unit.vx,
             vy = this.vy - unit.vy,
@@ -76,7 +77,7 @@ class Unit extends Point {
             unitPointDist = unitPoint.distSquare(closestPoint), // Square of the distance between unit and the closest point to unit on the line described by our speed vector
             myPointDist = myPoint.distSquare(closestPoint); // Square of the distance between us and that point
 
-        // If the distance between u and this line is less than the sum of the radii, there might be a collision
+        // If the distance between unit and this line is less than the sum of the radius, there might be a collision
         if (unitPointDist < sumRadiusSquare) {
             let length = Math.sqrt(Math.pow(vx, 2) + Math.pow(vy, 2)), // Our speed on the line
                 backDist = Math.sqrt(sumRadiusSquare - unitPointDist);
@@ -94,21 +95,65 @@ class Unit extends Point {
             if (myPointDist > length) // The point of impact is further than what we can travel in one turn
                 return null;
 
-            time = myPointDist / length;
+            let time = myPointDist / length;
 
             return new Collision(this, unit, time)
         }
         return null;
     }
+
 }
 
-/*
-class Pod extends Point {
-    constructor(x, y, angle) {
-        super(x, y);
+class Pod extends Unit {
+    constructor(x, y, id, radius, vx, vy, angle, nextCheckPointId, checked, timeout, shield) {
+        super(x, y, id, radius, vx, vy);
         this.angle = angle;
-        this.vx = 0;
-        this.vy = 0;
+        this.nextCheckPointId = nextCheckPointId;
+        this.checked = checked;
+        this.timeout = timeout;
+        //this.podPartner = podPartner;
+        this.shield = shield;
+    }
+    bounceWithCheckpoint () {
+        this.nextCheckPointId++;
+        this.timeout = 100;
+    }
+    bounce (unit) {
+
+        if (unit instanceof Checkpoint)
+            this.bounceWithCheckpoint();
+        else { // If a pod has its shield active its mass is 10 otherwise it's 1
+            let myMass = this.shield ? 10 : 1,
+                unitMass = unit.shield ? 10 : 1,
+                massCoefficient = (myMass + unitMass) / (myMass * unitMass),
+                nx = this.x - unit.x,
+                ny = this.y - unit.y,
+                nxNySquare = 640000, // Square of the distance between the 2 pods. nxNySquare = nx*nx + ny*ny
+                dvx = this.vx - unit.vx,
+                dvy = this.vy - unit.vy,
+                product = nx * dvx + ny * dvy, // fx and fy are the components of the impact vector. product is just there for optimisation purposes
+                fx = (nx * product) / (nxNySquare * massCoefficient),
+                fy = (ny * product) / (nxNySquare * massCoefficient),
+                impulse = Math.sqrt(Math.pow(fx, 2) + Math.pow(fy, 2));
+
+            // We apply the impact vector once
+            this.vx -= fx / myMass;
+            this.vy -= fy / myMass;
+            unit.vx += fx / unitMass;
+            unit.vy += fy / unitMass;
+
+            // If the norm of the impact vector is less than 120, we normalize it to 120
+            if (impulse < 120) {
+                fx = fx * 120.0 / impulse;
+                fy = fy * 120.0 / impulse;
+            }
+
+            // We apply the impact vector a second time
+            this.vx -= fx / myMass;
+            this.vy -= fy / myMass;
+            unit.vx += fx / unitMass;
+            unit.vy += fy / unitMass;
+        }
     }
     getAngle (point) {
         let dist = this.dist(point),
@@ -145,7 +190,10 @@ class Pod extends Point {
         else if (this.angle < 0)
             this.angle += 360;
     }
-    calcVectors (thrust) {
+    boost (thrust) {
+
+        if (this.shield)
+            return;
 
         let radiant = this.angle * Math.PI / 180;
 
@@ -159,14 +207,14 @@ class Pod extends Point {
     end () {
         this.x = Math.round(this.x);
         this.y = Math.round(this.y);
-        this.vx = Math.floor(this.vx * 0.85);
-        this.vy = Math.floor(this.vy * 0.85);
+        this.vx = Math.trunc(this.vx * 0.85);
+        this.vy = Math.trunc(this.vy * 0.85);
 
     }
     run (point, thrust) {
 
         this.rotate(point);
-        this.calcVectors(thrust);
+        this.boost(thrust);
         // What is the purpose of this t parameter in move()?
         // It will be useful later when we'll want to simulate an entire turn while taking into account collisions.
         // It is used to indicate by how much the pod should move forward. If t is 1.0 then the pod will move for a turn's worth.
@@ -175,5 +223,5 @@ class Pod extends Point {
         this.end();
     }
 }
-*/
+
 
