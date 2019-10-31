@@ -8,7 +8,7 @@ class Collision {
     }
 }
 class Checkpoint extends Unit {
-    constructor(x, y, id, radius, vx, vy) {
+    constructor(x, y, id, radius = 600, vx, vy) {
         super(x, y, id, radius, vx, vy)
     }
 }
@@ -105,14 +105,15 @@ class Unit extends Point {
 }
 
 class Pod extends Unit {
-    constructor(x, y, id, radius, vx, vy, angle, nextCheckPointId, checked, timeout, shield) {
+    constructor(x, y, id, radius, vx, vy, angle, shield) {
         super(x, y, id, radius, vx, vy);
         this.angle = angle;
-        this.nextCheckPointId = nextCheckPointId;
-        this.checked = checked;
-        this.timeout = timeout;
+        this.nextCheckPointId = 0;
+        this.checked = false;
+        this.timeout = 100;
         //this.podPartner = podPartner;
         this.shield = shield;
+        this.shieldTimer = 3;
     }
     bounceWithCheckpoint () {
         this.nextCheckPointId++;
@@ -156,6 +157,64 @@ class Pod extends Unit {
             applyImpactVector(fx, fy, myMass, unitMass);
         }
     }
+    play (pods, checkpoints) {
+        let time = 0;
+
+        let lastCollision = {
+            unitA: this.unitA,
+            unitB: this.unitB,
+            time: this.time
+        };
+
+        while (time < 1) {
+
+            let firstCollision = null,
+                collision;
+
+            for (let i = 0; i < pods.length; i++) {
+                for (let j = i + 1; j < pods.length; j++) {
+
+                    collision = pods[i].collision(pods[j]);
+
+                    // If the collision happens earlier than the current one we keep it
+                    if (collision !== null && collision.time + time < 1 && (firstCollision === null || collision.time < firstCollision.time))
+                        firstCollision = collision;
+                }
+                // Collision with another checkpoint?
+                // It is unnecessary to check all checkpoints here. We only test the pod's next checkpoint.
+                // We could look for the collisions of the pod with all the checkpoints, but if such a collision happens it wouldn't impact the game in any way
+                collision = pods[i].collision(checkpoints[pods[i].nextCheckPointId]);
+
+                // If the collision happens earlier than the current one we keep it
+                if (collision !== null && collision.time + time < 1 && (firstCollision === null || collision.time < firstCollision.time))
+                    firstCollision = collision;
+            }
+
+            if (firstCollision === null) {
+                // No collision, we can move the pods until the end of the turn
+                for (let i = 0; i < pods.length; i++)
+                    pods[i].move(1 - time);
+
+                // End of the turn
+                time = 1;
+            } else {
+                if (!(firstCollision.unitA === lastCollision.unitA && firstCollision.unitB === lastCollision.unitB && firstCollision.time === 0)) {
+                    // Move the pods to reach the time `t` of the collision
+                    for (let i = 0; i < pods.length; ++i)
+                        pods[i].move(firstCollision.time);
+
+                    // Play out the collision
+                    firstCollision.unitA.bounce(firstCollision.unitB);
+                    time += firstCollision.time;
+                }
+                lastCollision = Object.assign(firstCollision);
+
+            }
+        }
+        for (let i = 0; i < pods.length; ++i)
+            pods[i].end();
+
+    }
     getAngle (point) {
         let dist = this.dist(point),
             dx = (point.x - this.x) / dist,
@@ -191,10 +250,18 @@ class Pod extends Unit {
         else if (this.angle < 0)
             this.angle += 360;
     }
+    activeShield () {
+        this.shield = true;
+    }
     boost (thrust) {
 
-        if (this.shield)
+        if (this.shield && this.shieldTimer > 0) {
+            this.shieldTimer--;
             return;
+        } else if (this.shield && this.shieldTimer === 0) {
+            this.shield = false;
+            this.shieldTimer = 3;
+        }
 
         let radiant = this.angle * Math.PI / 180;
 
@@ -222,6 +289,13 @@ class Pod extends Unit {
         // If it's 0.5 it will only move for half a turn's worth. If you don't want to simulate collisions you can replace t by 1.0.
         this.move(t);
         this.end();
+    }
+    test (pods, checkpoints) {
+        for (let i = 0; i < pods.length; i++) {
+            pods[i].rotate(new Point());
+            pods[i].boost();
+        }
+        this.play(pods, checkpoints)
     }
 }
 

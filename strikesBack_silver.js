@@ -1,9 +1,7 @@
 "use strict";
 
 const
-    collusionSpeed = 200, // Minimum mySpeed for activating shield
-    collusionDistToOpp = 800, // Maximum distance for activating shield
-    collusionDistToNextCP = 1600, //
+    collusionDistToOpp = 810, // Maximum distance for activating shield
     boostDist = 4000, // Minimum distance for activating boost
     targetRadius = 300, // Distance starting from the middle of the checkpoint for the racer to aim for
     // Distance steps for slowing down the racer
@@ -80,16 +78,11 @@ let mapReady = false,
     checkCollusion = (myPos, opponentPos, nextCP_pos, mySpeed, opponentSpeed) => {
 
         let myPosition = new Point(myPos),
-            myDistToOpponent = myPosition.dist(opponentPos),
-            myDistToNextCP = myPosition.dist(nextCP_pos),
-            opponentPosition = new Point(opponentPos),
-            opponentDistToNextCP = opponentPosition.dist(nextCP_pos);
+            myDistToOpponent = myPosition.dist(opponentPos);
 
         console.error(`opponent_dist: ${myDistToOpponent}`);
 
         return myDistToOpponent < collusionDistToOpp;
-        //&& mySpeed > opponentSpeed * 1.2 && (myDistToNextCP < collusionDistToNextCP || myDistToNextCP > boostDist + 500);
-        //return false;
 
     },
     gaussValue = (gauss, value) => Math.round(gauss.a / Math.pow(Math.E, (Math.pow(value - gauss.b, 2)) / (2 * gauss.c * gauss.c))),
