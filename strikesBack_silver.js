@@ -1,7 +1,7 @@
 "use strict";
 
 const
-    collusionDistToOpp = 810, // Maximum distance for activating shield
+    collusionDistToOpp = 800, // Maximum distance for activating shield
     boostDist = 4000, // Minimum distance for activating boost
     targetRadius = 300, // Distance starting from the middle of the checkpoint for the racer to aim for
     // Distance steps for slowing down the racer
@@ -160,7 +160,7 @@ class Pod extends Point {
     }
     calculateGoal () {
 
-        let m = this.target.x - this.x === 0 ? 1000 : (this.target.y - this.y) / (this.target.x - this.x),
+        let m = this.target.x - this.x === 0 ? 1 : (this.target.y - this.y) / (this.target.x - this.x),
             b = this.target.y - m * this.target.x,
             targetR = gaussValue(gauss.targetRadius, this.angle),
             // Calculate the two interference points
