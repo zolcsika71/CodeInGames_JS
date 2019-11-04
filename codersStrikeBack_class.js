@@ -106,14 +106,14 @@ class Pod extends Unit {
     constructor(x, y, id, radius, vx, vy, angle, shield) {
         super(x, y, id, radius, vx, vy);
         this.angle = angle;
-        this.nextCheckPointId = 0;
+        this.checkPointId = 0;
         this.checked = 0;
         this.timeout = 100;
         //this.podPartner = podPartner;
         this.shield = shield;
     }
     bounceWithCheckpoint () {
-        this.nextCheckPointId++;
+        this.checkPointId++;
         this.timeout = 100;
     }
     bounce (unit) {
@@ -181,7 +181,7 @@ class Pod extends Unit {
                 // Collision with another checkpoint?
                 // It is unnecessary to check all checkpoints here. We only test the pod's next checkpoint.
                 // We could look for the collisions of the pod with all the checkpoints, but if such a collision happens it wouldn't impact the game in any way
-                collision = pods[i].collision(checkpoints[pods[i].nextCheckPointId]);
+                collision = pods[i].collision(checkpoints[pods[i].checkPointId]);
 
                 // If the collision happens earlier than the current one we keep it
                 if (collision !== null && collision.time + time < 1 && (firstCollision === null || collision.time < firstCollision.time)) {
@@ -279,21 +279,26 @@ class Pod extends Unit {
         this.vx = Math.trunc(this.vx * 0.85);
         this.vy = Math.trunc(this.vy * 0.85);
 
+        // Don't forget that the timeout goes down by 1 each turn. It is reset to 100 when you pass a checkpoint
+        this.timeout -= 1;
+
     }
     run (pods, checkpoints, target, thrust) {
         for (let i = 0; i < pods.length; i++) {
-            pods[i].rotate(new Point(target));
+            pods[i].rotate(new Point(target.x, target.y));
             pods[i].boost(thrust);
         }
         this.play(pods, checkpoints)
+    }
+    score (checkpoints) {
+        return this.checked * 50000 - this.dist(checkpoints[this.checkPointId]);
     }
 }
 
 const
     collusionDistToOpp = 800, // pod radius * 2
-    collusionDistToOppSquare = Math.pow(collusionDistToOpp, 2),
     boostDist = 4000, // Minimum distance for activating boost
-    targetRadius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
+    targetRadius = 300, // Distance starting from the middle of the checkpoint for the racer to aim for
     // gauss parameters
     gauss = {
         far: { // x: angle
@@ -312,9 +317,10 @@ const
             c: 90
         }
     },
-    breakDist = 1600;
+    breakDist = 600;
 
-let map = [],
+let checkpoints = [],
+    collisionTimer = 0,
     mapReady = false,
     boostAvailable = true,
     firstRound = true,
@@ -324,41 +330,49 @@ let map = [],
     checkpointIndex,
     nextCheckPointIndex,
     targetPoint,
-    findCoords = checkpoint => map.findIndex(i => i.x === checkpoint.x && i.y === checkpoint.y),
+    findCoords = checkpoint => checkpoints.findIndex(i => i.x === checkpoint.x && i.y === checkpoint.y),
     fillMap = checkpoint => {
         let index = findCoords(checkpoint);
 
         if (index === -1)
-            map.push(new Checkpoint(checkpoint.x, checkpoint.y));
-        else if (index !== map.length - 1)
+            checkpoints.push(new Checkpoint(checkpoint.x, checkpoint.y));
+        else if (index !== checkpoints.length - 1)
             mapReady = true;
 
         if (index === -1)
-            return map.length - 1;
+            return checkpoints.length - 1;
         else
             return index;
     },
-    countSpeed = (position, target, pod = 'my') => {
+    countSpeed = (position, target, opponent = false) => {
 
-        let myPosition = new Point(position),
+        let myPosition = new Point(position.x, position.y),
             speed = myPosition.dist(target);
 
-        if (pod === 'opponent') {
+        if (opponent) {
             opponentLastPos.x = target.x;
             opponentLastPos.y = target.y;
-        } else if (pod === 'my') {
+        } else {
             myLastPos.x = target.x;
             myLastPos.y = target.y;
         }
 
         return Math.round(speed);
+
     },
     checkCollusion = (myPos, opponentPos) => {
 
-        let myPosition = new Point(myPos),
-            myDistToOpponentSquare = myPosition.distSquare(opponentPos);
+        let myPosition = new Point(myPos.x, myPos.y),
+            myDistToOpponent = Math.round(myPosition.dist(opponentPos));
 
-        return myDistToOpponentSquare < collusionDistToOppSquare;
+        console.error(`distToOpponent: ${myDistToOpponent}`);
+
+
+        if (myDistToOpponent < collusionDistToOpp) {
+            collisionTimer = 2;
+            return true;
+        } else
+            return false;
 
     },
     gaussValue = (gauss, value) => Math.round(gauss.a / Math.pow(Math.E, (Math.pow(value - gauss.b, 2)) / (2 * gauss.c * gauss.c))),
@@ -409,9 +423,9 @@ let map = [],
 
 
         if (myPosition.distSquare(point1) < myPosition.distSquare(point2))
-            return point1;
+            return new Point(point1.x, point1.y);
 
-        return point2;
+        return new Point(point2.x, point2.y);
     };
 
 while (true) {
@@ -444,24 +458,33 @@ while (true) {
     }
     if (mapReady) {
         checkpointIndex = findCoords(checkpoint.pos);
-        nextCheckPointIndex = checkpointIndex + 1 === map.length ? 0 : checkpointIndex + 1;
-        targetPoint = new Point(calculateGoal(map[nextCheckPointIndex], checkpoint.pos, checkpoint.angle));
+        nextCheckPointIndex = checkpointIndex + 1 === checkpoints.length ? 0 : checkpointIndex + 1;
+        targetPoint = calculateGoal(checkpoints[nextCheckPointIndex], checkpoint.pos, checkpoint.angle);
     } else {
         checkpointIndex = fillMap(checkpoint.pos);
-        targetPoint = new Point(calculateGoal(myPos, checkpoint.pos, checkpoint.angle));
+        targetPoint = calculateGoal(myPos, checkpoint.pos, checkpoint.angle);
     }
     let mySpeed = countSpeed(myLastPos, myPos),
-        collision = checkCollusion(myPos, opponentPos),
-        thrust = collision ? 'SHIELD' : adjustThrust(mySpeed, targetPoint.dist(myPos), checkpoint.angle);
+        collisionDetected = false,
+        thrust;
 
-    log.basic = `nextCP_dist: ${checkpoint.dist} nextCP_angle: ${checkpoint.angle} thrust: ${thrust} speed: ${mySpeed} collusion: ${collision}`;
-    log.incompleteMap = `mapReady: ${mapReady} mapLength: ${map.length} x: ${map[checkpointIndex].x} y: ${map[checkpointIndex].y} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex}`;
+    if (collisionTimer === 0)
+        collisionDetected = checkCollusion(myPos, opponentPos);
+    else {
+        collisionTimer -= 1;
+        collisionDetected = true;
+    }
+
+    thrust = collisionDetected ? 'SHIELD' : adjustThrust(mySpeed, targetPoint.dist(myPos), checkpoint.angle);
+
+    log.basic = `nextCP_dist: ${checkpoint.dist} nextCP_angle: ${checkpoint.angle} thrust: ${thrust} speed: ${mySpeed} collusion: ${collisionDetected}`;
+    log.incompleteMap = `mapReady: ${mapReady} mapLength: ${checkpoints.length} x: ${checkpoints[checkpointIndex].x} y: ${checkpoints[checkpointIndex].y} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex}`;
 
 
     console.error(log.basic);
     console.error(log.incompleteMap);
 
-    console.log(`${point.x} ${point.y} ${thrust} ${thrust}`);
+    console.log(`${targetPoint.x} ${targetPoint.y} ${thrust} ${thrust}`);
 
 }
 

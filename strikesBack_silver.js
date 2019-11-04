@@ -36,6 +36,7 @@ let mapReady = false,
     opponentSpeed,
     angle,
     collusion,
+    collisionTimer = 0,
     myPod,
     firstRound = true,
     log = {},
@@ -75,14 +76,19 @@ let mapReady = false,
         return Math.round(speed);
 
     },
-    checkCollusion = (myPos, opponentPos, nextCP_pos, mySpeed, opponentSpeed) => {
+    checkCollusion = (myPos, opponentPos) => {
 
-        let myPosition = new Point(myPos),
-            myDistToOpponent = myPosition.dist(opponentPos);
+        let myPosition = new Point(myPos.x, myPos.y),
+            myDistToOpponent = Math.round(myPosition.dist(opponentPos));
 
-        console.error(`opponent_dist: ${myDistToOpponent}`);
+        console.error(`distToOpponent: ${myDistToOpponent}`);
 
-        return myDistToOpponent < collusionDistToOpp;
+
+        if (myDistToOpponent < collusionDistToOpp) {
+            collisionTimer = 2;
+            return true;
+        } else
+            return false;
 
     },
     gaussValue = (gauss, value) => Math.round(gauss.a / Math.pow(Math.E, (Math.pow(value - gauss.b, 2)) / (2 * gauss.c * gauss.c))),
