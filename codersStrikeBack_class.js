@@ -1,5 +1,63 @@
 "use strict";
 
+function erf(x) {
+    const ERF_A = 0.147;
+    let the_sign_of_x;
+
+    if(x === 0) {
+        the_sign_of_x = 0;
+        return 0;
+    } else if(x > 0)
+        the_sign_of_x = 1;
+    else
+        the_sign_of_x = -1;
+
+
+    let one_plus_axSquared = 1 + ERF_A * x * x,
+        four_ovr_pi_etc = 4 / Math.PI + ERF_A * x * x,
+        ratio = four_ovr_pi_etc / one_plus_axSquared;
+
+    ratio *= x * -x;
+
+    let expRatio = Math.exp(ratio),
+        radical = Math.sqrt(1-expRatio);
+
+    return radical * the_sign_of_x;
+
+}
+
+
+/**
+ *
+ * @param x
+ * @param gauss
+ * @returns {number}
+ */
+
+function cdf(x, gauss) {
+    return 0.5 * (1 + erf((x - gauss.mu) / (Math.sqrt(2 * gauss.sigma))));
+}
+
+/**
+ *
+ * @param gauss (a: min x, b: max x, mu: location parameter, sigma: scale parameter
+ * @param x
+ * @returns {number} evaluated pdf
+ */
+
+function pdf(x, gauss) {
+    if ( x < gauss.a || x > gauss.b )
+        return 0;
+
+    let s2 = Math.pow( gauss.sigma, 2 ),
+        A = 1 / (Math.sqrt( 2 * s2 * Math.PI ) ),
+        B = -1 / ( 2 * s2 ),
+        //C = cdf((gauss.b - gauss.mu) / gauss.sigma, gauss.mu, gauss.sigma) - cdf((gauss.a - gauss.mu) / gauss.sigma, gauss.mu, gauss.sigma);
+        C = cdf((gauss.b - gauss.mu) / gauss.sigma, gauss) - cdf((gauss.a - gauss.mu) / gauss.sigma, gauss);
+
+    return A * Math.exp(B * Math.pow(x - gauss.mu, 2 )) / C;
+}
+
 class Collision {
     constructor(unitA, unitB, time) {
         this.unitA = unitA;
@@ -297,27 +355,30 @@ class Pod extends Unit {
 
 const
     collusionDistToOpp = 800, // pod radius * 2
-    boostDist = 4000, // Minimum distance for activating boost
-    targetRadius = 300, // Distance starting from the middle of the checkpoint for the racer to aim for
+    boostDist = 2000, // Minimum distance for activating boost
+    targetRadius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
     // gauss parameters
     gauss = {
         far: { // x: angle
-            a: 100, // max value
-            b: 0, // middle point
-            c: 30 // 'bell' width
+            a: -90, // min x
+            b: 90, // max x
+            mu: 0, // location parameter
+            sigma: 1 // scale parameter
         },
         break: { // x: speed
-            a: 100,
-            b: 0,
-            c: 200
+            a: 0, // min x
+            b: 600, // max x
+            mu: 0, // location parameter
+            sigma: 100 // scale parameter
         },
         targetRadius: { // x: targetRadius
-            a: targetRadius,
-            b: 0,
-            c: 90
+            a: -90, // min x
+            b: 90, // max x
+            mu: 0, // location parameter
+            sigma: 1 // scale parameter
         }
     },
-    breakDist = 600;
+    breakDist = 1300;
 
 let checkpoints = [],
     collisionTimer = 0,
@@ -363,9 +424,9 @@ let checkpoints = [],
     checkCollusion = (myPos, opponentPos) => {
 
         let myPosition = new Point(myPos.x, myPos.y),
-            myDistToOpponent = Math.round(myPosition.dist(opponentPos));
+            myDistToOpponent = myPosition.dist(opponentPos);
 
-        console.error(`distToOpponent: ${myDistToOpponent}`);
+        console.error(`distToOpponent: ${Math.floor(myDistToOpponent)}`);
 
 
         if (myDistToOpponent < collusionDistToOpp) {
@@ -375,19 +436,20 @@ let checkpoints = [],
             return false;
 
     },
-    gaussValue = (gauss, value) => Math.round(gauss.a / Math.pow(Math.E, (Math.pow(value - gauss.b, 2)) / (2 * gauss.c * gauss.c))),
+    gaussValue = (value, gauss) => pdf(value, gauss),
+    //gaussValue = (gauss, value) => Math.round(gauss.a / Math.pow(Math.E, (Math.pow(value - gauss.b, 2)) / (2 * gauss.c * gauss.c))),
     setThrust = (dist, speed, angle) => {
 
         let thrust;
 
         if (dist >= breakDist) {
-            thrust = gaussValue(gauss.far, angle);
+            thrust = gaussValue(Math.abs(angle), gauss.far);
             console.error(`gaussValue far: ${thrust}`);
         } else {
-            thrust = gaussValue(gauss.break, speed);
+            thrust = gaussValue(speed, gauss.break);
             console.error(`gaussValue break: ${thrust}`);
         }
-        return thrust;
+        return Math.round(thrust * 100);
     },
     adjustThrust = (speed, dist, angle) => {
         // If angle is too wide
@@ -407,10 +469,10 @@ let checkpoints = [],
         let //m = targetPos.x - myPos.x === 0 ? 1000 : (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
             m = (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
             b = targetPos.y - m * targetPos.x,
-            targetR = gaussValue(gauss.targetRadius, angle),
+            targetR = gaussValue(angle, gauss.targetRadius),
             // Calculate the two interference points
-            x1 = (targetPos.x + targetR / Math.sqrt(1 + m * m)),
-            x2 = (targetPos.x - targetR / Math.sqrt(1 + m * m)),
+            x1 = (targetPos.x + 350 * targetR / Math.sqrt(1 + m * m)),
+            x2 = (targetPos.x - 350 * targetR / Math.sqrt(1 + m * m)),
             point1 = {
                 x: Math.round(x1),
                 y: Math.round(m * x1 + b)
@@ -421,6 +483,7 @@ let checkpoints = [],
             },
             myPosition = new Point(myPos.x, myPos.y);
 
+        console.error(`targetRadius: ${targetR}`);
 
         if (myPosition.distSquare(point1) < myPosition.distSquare(point2))
             return new Point(point1.x, point1.y);
