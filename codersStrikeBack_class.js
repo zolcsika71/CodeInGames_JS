@@ -57,7 +57,31 @@ function pdf(x, gauss) {
     return A * Math.exp(B * Math.pow(x - gauss.mu, 2)) / C;
 }
 
+class Vector {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    add (vector) {
+        return new Vector(this.x + vector.x, this.y + vector.y);
+    }
+    subtract (vector) {
+        return new Vector(this.x - vector.x, this.y - vector.y);
+    }
+    multiply (scalar) {
+        return new Vector(this.x * scalar, this.y * scalar);
+    }
+    magnitude () {
+        return Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2));
+    }
+    divide (scalar) {
+        return new Vector(Math.round(this.x / scalar), Math.round(this.y / scalar));
+    }
+    normalisedVector () {
+        return this.divide(this.magnitude());
+    }
 
+}
 class Collision {
     constructor(unitA, unitB, time) {
         this.unitA = unitA;
@@ -97,31 +121,6 @@ class Point {
         }
         return new Point(cx, cy);
     }
-}
-class Vector extends Point {
-    constructor(x, y) {
-        super(x, y);
-    }
-    add (vector) {
-        return new Vector(this.x + vector.x, this.y + vector.y);
-    }
-    subtract (vector) {
-        return new Vector(this.x - vector.x, this.y - vector.y);
-    }
-    multiply (scalar) {
-        return new Vector(this.x * scalar, this.y * scalar);
-    }
-    divide (vector) {
-
-        let scalar = this.dist(vector);
-
-        console.error(`scalar: ${scalar}`);
-        return new Vector(Math.round(this.x / scalar + this.x), Math.round(this.y / scalar + scalar));
-    }
-    normalisedVector (vector) {
-        return this.divide(vector);
-    }
-
 }
 class Unit extends Point {
     constructor (x, y, id, radius, vx, vy) {
@@ -416,6 +415,12 @@ let checkpoints = [],
     checkpointIndex,
     nextCheckPointIndex,
     targetPoint,
+    baseVector = (point1, point2) => {
+        return {
+            x: point2.x - point1.x,
+            y: point2.y - point1.y
+        };
+    },
     findCoords = checkpoint => checkpoints.findIndex(i => i.x === checkpoint.x && i.y === checkpoint.y),
     fillMap = checkpoint => {
         let index = findCoords(checkpoint);
@@ -494,13 +499,14 @@ let checkpoints = [],
                 return setThrust(dist, speed, angle);
         }
     },
-    calculateGoal = (myPos, targetPos, angle) => {
+    calculateGoal = (startPos, targetPos, angle) => {
+
+        console.error(`startPos.x: ${startPos.x} startPos.y: ${startPos.y} targetPos.x: ${targetPos.x} targetPos.y: ${targetPos.y}`);
 
         let //m = targetPos.x - myPos.x === 0 ? 1000 : (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
-            m = (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
+            m = (targetPos.y - startPos.y) / (targetPos.x - startPos.x),
             b = targetPos.y - m * targetPos.x,
-            //targetR = gaussValue(angle, gauss.targetRadius) * gaussConst.targetRadius,
-            targetR = 0,
+            targetR = gaussValue(angle, gauss.targetRadius) * gaussConst.targetRadius,
             // Calculate the two interference points
             x1 = (targetPos.x + targetR / Math.sqrt(1 + m * m)),
             x2 = (targetPos.x - targetR / Math.sqrt(1 + m * m)),
@@ -512,17 +518,32 @@ let checkpoints = [],
                 x: Math.round(x2),
                 y: Math.round(m * x2 + b)
             },
-            myPosition = new Point(myPos.x, myPos.y),
+            myPosition = new Point(startPos.x, startPos.y),
             dist1 = myPosition.dist(point1),
             dist2 = myPosition.dist(point2),
-            vector = new Vector(myPos.x, myPos.y);
+            baseV,
+            vector;
 
+        console.error(`point1.x: ${point1.x} point1.y: ${point1.y} point2.x: ${point2.x} point2.y: ${point2.y} pointDist1: ${Math.round(dist1)} pointDist2: ${Math.round(dist2)}`);
         console.error(`targetRadius: ${targetR}`);
 
         if (dist1 < dist2)
-            return vector.normalisedVector(point1);
+            baseV = baseVector(startPos, point1);
+        else
+            baseV = baseVector(startPos, point2);
 
-        return vector.normalisedVector(point2);
+        vector = new Vector(baseV.x, baseV.y);
+        //vector = vector.normalisedVector();
+
+        //return new Point(startPos.x + vector.x, startPos.y + vector.y);
+
+        console.error(`vector.x: ${vector.x} vector.y: ${vector.y}`);
+
+        return {
+            x: vector.x,
+            y: vector.y
+        }
+
     };
 
 while (true) {
@@ -557,9 +578,11 @@ while (true) {
         checkpointIndex = findCoords(checkpoint.pos);
         nextCheckPointIndex = checkpointIndex + 1 === checkpoints.length ? 0 : checkpointIndex + 1;
         targetPoint = calculateGoal(checkpoints[nextCheckPointIndex], checkpoint.pos, checkpoint.angle);
+        targetPoint = new Point(myPos.x + targetPoint.x, myPos.y + targetPoint.y);
     } else {
         checkpointIndex = fillMap(checkpoint.pos);
         targetPoint = calculateGoal(myPos, checkpoint.pos, checkpoint.angle);
+        targetPoint = new Point(myPos.x + targetPoint.x, myPos.y + targetPoint.y);
     }
     let mySpeed = countSpeed(myLastPos, myPos),
         collisionDetected = false,
