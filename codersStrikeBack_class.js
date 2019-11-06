@@ -381,6 +381,7 @@ const
     collusionDistToOpp = 800, // pod radius * 2
     boostDist = 2000, // Minimum distance for activating boost
     targetRadius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
+    vectorMagnitude = 1,
     // gauss parameters
     gauss = {
         far: { // x: angle
@@ -499,14 +500,15 @@ let checkpoints = [],
                 return setThrust(dist, speed, angle);
         }
     },
-    calculateGoal = (startPos, targetPos, angle) => {
+    calculateGoal = (myPos, startPos, targetPos, angle) => {
 
-        console.error(`startPos.x: ${startPos.x} startPos.y: ${startPos.y} targetPos.x: ${targetPos.x} targetPos.y: ${targetPos.y}`);
+        //console.error(`startPos.x: ${startPos.x} startPos.y: ${startPos.y} targetPos.x: ${targetPos.x} targetPos.y: ${targetPos.y}`);
 
         let //m = targetPos.x - myPos.x === 0 ? 1000 : (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
             m = (targetPos.y - startPos.y) / (targetPos.x - startPos.x),
             b = targetPos.y - m * targetPos.x,
             targetR = gaussValue(angle, gauss.targetRadius) * gaussConst.targetRadius,
+            //targetR = targetRadius,
             // Calculate the two interference points
             x1 = (targetPos.x + targetR / Math.sqrt(1 + m * m)),
             x2 = (targetPos.x - targetR / Math.sqrt(1 + m * m)),
@@ -524,24 +526,31 @@ let checkpoints = [],
             baseV,
             vector;
 
-        console.error(`point1.x: ${point1.x} point1.y: ${point1.y} point2.x: ${point2.x} point2.y: ${point2.y} pointDist1: ${Math.round(dist1)} pointDist2: ${Math.round(dist2)}`);
-        console.error(`targetRadius: ${targetR}`);
+        //console.error(`point1.x: ${point1.x} point1.y: ${point1.y} point2.x: ${point2.x} point2.y: ${point2.y} pointDist1: ${Math.round(dist1)} pointDist2: ${Math.round(dist2)}`);
+        console.error(`targetRadius: ${Math.round(targetR)}`);
 
-        if (dist1 < dist2)
-            baseV = baseVector(startPos, point1);
-        else
-            baseV = baseVector(startPos, point2);
+        if (dist1 < dist2) {
+            if (mapReady)
+                baseV = baseVector(myPos, point1);
+            else
+                baseV = baseVector(startPos, point1);
+        } else {
+            if (mapReady)
+                baseV = baseVector(myPos, point2);
+            else
+                baseV = baseVector(startPos, point2);
+        }
 
         vector = new Vector(baseV.x, baseV.y);
         //vector = vector.normalisedVector();
 
         //return new Point(startPos.x + vector.x, startPos.y + vector.y);
 
-        console.error(`vector.x: ${vector.x} vector.y: ${vector.y}`);
+        console.error(`vector.x: ${vector.x * vectorMagnitude} vector.y: ${vector.y * vectorMagnitude}`);
 
         return {
-            x: vector.x,
-            y: vector.y
+            x: vector.x * vectorMagnitude,
+            y: vector.y * vectorMagnitude
         }
 
     };
@@ -577,11 +586,11 @@ while (true) {
     if (mapReady) {
         checkpointIndex = findCoords(checkpoint.pos);
         nextCheckPointIndex = checkpointIndex + 1 === checkpoints.length ? 0 : checkpointIndex + 1;
-        targetPoint = calculateGoal(checkpoints[nextCheckPointIndex], checkpoint.pos, checkpoint.angle);
+        targetPoint = calculateGoal(myPos, checkpoints[nextCheckPointIndex], checkpoint.pos, checkpoint.angle);
         targetPoint = new Point(myPos.x + targetPoint.x, myPos.y + targetPoint.y);
     } else {
         checkpointIndex = fillMap(checkpoint.pos);
-        targetPoint = calculateGoal(myPos, checkpoint.pos, checkpoint.angle);
+        targetPoint = calculateGoal(myPos, myPos, checkpoint.pos, checkpoint.angle);
         targetPoint = new Point(myPos.x + targetPoint.x, myPos.y + targetPoint.y);
     }
     let mySpeed = countSpeed(myLastPos, myPos),
