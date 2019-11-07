@@ -1,6 +1,68 @@
 "use strict";
 
+function baseVector(point1, point2) {
+    return {
+        x: point2.x - point1.x,
+        y: point2.y - point1.y
+    };
+}
 
+function erf(x) {
+    const ERF_A = 0.147;
+    let the_sign_of_x;
+
+    if (x === 0) {
+        the_sign_of_x = 0;
+        return 0;
+    } else if (x > 0)
+        the_sign_of_x = 1;
+    else
+        the_sign_of_x = -1;
+
+
+    let one_plus_axSquared = 1 + ERF_A * x * x,
+        four_ovr_pi_etc = 4 / Math.PI + ERF_A * x * x,
+        ratio = four_ovr_pi_etc / one_plus_axSquared;
+
+    ratio *= x * -x;
+
+    let expRatio = Math.exp(ratio),
+        radical = Math.sqrt(1 - expRatio);
+
+    return radical * the_sign_of_x;
+
+}
+
+/**
+ *
+ * @param x
+ * @param gauss
+ * @returns {number}
+ */
+
+function cdf(x, gauss) {
+    return 0.5 * (1 + erf((x - gauss.mu) / (Math.sqrt(2 * gauss.sigma))));
+}
+
+/**
+ *
+ * @param gauss (a: min x, b: max x, mu: location parameter, sigma: scale parameter
+ * @param x
+ * @returns {number} evaluated pdf
+ */
+
+function pdf(x, gauss) {
+    if (x < gauss.a || x > gauss.b)
+        return 0;
+
+    let s2 = Math.pow(gauss.sigma, 2),
+        A = 1 / (Math.sqrt(2 * s2 * Math.PI)),
+        B = -1 / (2 * s2),
+        //C = cdf((gauss.b - gauss.mu) / gauss.sigma, gauss.mu, gauss.sigma) - cdf((gauss.a - gauss.mu) / gauss.sigma, gauss.mu, gauss.sigma);
+        C = cdf((gauss.b - gauss.mu) / gauss.sigma, gauss) - cdf((gauss.a - gauss.mu) / gauss.sigma, gauss);
+
+    return A * Math.exp(B * Math.pow(x - gauss.mu, 2)) / C;
+}
 
 class Vector {
     constructor(x, y) {
@@ -59,10 +121,9 @@ class Point {
         return new Point(cx, cy);
     }
 }
-class Checkpoint {
+class Checkpoint extends Point{
     constructor(x, y) {
-        this.x = x;
-        this.y = y;
+        super(x, y);
         this.radius = 600;
     }
 }
@@ -73,52 +134,98 @@ class Pod {
         this.target = target;
         this.radius = 400;
         this.shield = false;
-        this.shieldTimer = 3;
-        this.lastVelocity = [];
-        this.vector = {
-            pos: function () {
-                return new Vector(this.position.x, this.position.y);
-            },
-            nextPos: this.vector.pos().add(this.vector.velocity()),
-            targetPos: function () {
-                return new Vector(this.target.x, this.target.y);
-            },
-            velocity: function () {
-                let baseV = baseVector(this.lastPosition, this.position);
-                return new Vector(baseV.x, baseV.y);
-            },
-            lastVelocity: function () {
+        this.shieldTimer = 0;
+    }
+    pos () {
+        return new Vector(this.position.x, this.position.y);
+    }
+    targetPos () {
+        return new Vector(this.target.x, this.target.y);
+    }
+    velocity () {
+        let baseV = baseVector(this.lastPosition, this.position);
+        return new Vector(baseV.x, baseV.y);
+    }
+    lastVelocity () {
 
-                let returnValue;
-                this.lastVelocity.push(this.velocity);
+        let returnValue;
+        tempVelocity.push(this.velocity);
 
-                if (this.lastVelocity.length === 1)
-                    returnValue = this.lastVelocity[0];
-                else {
-                    returnValue = this.lastVelocity[0];
-                    this.lastVelocity.slice(0);
-                }
-                return returnValue;
-            },
-            desiredVelocity: this.vector.targetPos().subtract(this.vector.pos()).normalisedVector().multiply(maxVelocity),
-            steeringForce: this.vector.desiredVelocity.subtract(this.vector.velocity()),
-            turn: this.vector.targetPos().subtract(this.vector.pos()).normalisedVector()
+        if (tempVelocity.length === 1)
+            returnValue = tempVelocity[0];
+        else {
+            returnValue = tempVelocity[0];
+            tempVelocity.slice(0);
         }
+        return returnValue;
+    }
+    desiredVelocity () {
+        return this.targetPos().subtract(this.pos()).normalisedVector().multiply(maxVelocity)
+    }
+    steeringForce () {
+        return this.shield ? this.desiredVelocity.subtract(this.velocity()).divide(10) : this.desiredVelocity.subtract(this.velocity());
+    }
+    calculatedVelocity () {
+        let velocity = this.velocity().add(this.steeringForce),
+            velocityMagnitude = velocity.magnitude();
+
+        console.error(`velocity: ${velocity.x} ${velocity.y}`);
+
+        if (velocityMagnitude > maxVelocity)
+            velocity = velocity.normalisedVector().multiply(maxVelocity);
+
+        return velocity;
+    }
+    nextPos () {
+        return this.pos().add(this.calculatedVelocity());
+    }
+    turn () {
+        return this.targetPos().subtract(this.pos()).normalisedVector();
+    }
+    activateShield (boolean) {
+        this.shield = boolean;
+        this.shieldTimer = 3;
+    }
+    decrementShieldTimer () {
+        this.shieldTimer--;
+        if (this.shieldTimer === 0)
+            this.shield = false;
     }
 
 }
 
 
 const
-    collusionDistToOpp = 800, // pod radius * 2
+    collisionDistToOpp = 800, // pod radius * 2
+    collisionThreshold = 1, // opponent velocity - my velocity
     boostDist = 2000, // Minimum distance for activating boost
     targetRadius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
-    vectorMagnitude = 1,
     maxVelocity = 100,
-    breakDist = 1300;
+    breakDist = 1300,
+    disabledAngle = 45 + 18,
+    gauss = {
+        far: { // x: angle
+            a: -90, // min x
+            b: 90, // max x
+            mu: 0, // location parameter
+            sigma: 30 // scale parameter
+        },
+        break: { // x: speed
+            a: 0, // min x
+            b: 700, // max x
+            mu: 0, // location parameter
+            sigma: 40 // scale parameter
+        },
+        targetRadius: { // x: targetRadius
+            a: -90, // min x
+            b: 90, // max x
+            mu: 0, // location parameter
+            sigma: 10 // scale parameter
+        }
+    };
 
-let checkpoints = [],
-    collisionTimer = 0,
+let tempVelocity = [],
+    checkpoints = [],
     mapReady = false,
     boostAvailable = true,
     firstRound = true,
@@ -128,12 +235,6 @@ let checkpoints = [],
     checkpointIndex,
     nextCheckPointIndex,
     targetPoint,
-    baseVector = (point1, point2) => {
-        return {
-            x: point2.x - point1.x,
-            y: point2.y - point1.y
-        };
-    },
     findCoords = checkpoint => checkpoints.findIndex(i => i.x === checkpoint.x && i.y === checkpoint.y),
     fillMap = checkpoint => {
         let index = findCoords(checkpoint);
@@ -164,40 +265,50 @@ let checkpoints = [],
         return Math.round(speed);
 
     },
-    setThrust = (dist, speed, angle) => {
+    gaussValue = (value, gauss) => pdf(value, gauss),
+    gaussConst = {
+        far: function (thrust) { // x = angle
+            return thrust / gaussValue(0, gauss.far)
+        },
+        break: function (thrust) { // x = speed
+            return thrust / gaussValue(gauss.break.a, gauss.break);
+        },
+        targetRadius: function () { // x = angle
+            return targetRadius / gaussValue(0, gauss.targetRadius)
+        }
+    },
+    setThrust = (speed, dist, angle, thrust) => {
 
-        let thrust;
+        let returnValue;
+
+        console.error(`thrust: ${thrust}`);
 
         if (dist >= breakDist || (Math.abs(angle) > 3)) {
-            thrust = gaussValue(angle, gauss.far) * gaussConst.far;
-            console.error(`gaussValue far: ${thrust}`);
+            returnValue = gaussValue(angle, gauss.far) * gaussConst.far(thrust);
+            console.error(`gaussValue far: ${returnValue}`);
         } else {
-            thrust = gaussValue(speed, gauss.break);
-            console.error(`gaussValue break: ${thrust}`);
+            returnValue = gaussValue(speed, gauss.break);
+            console.error(`gaussValue break: ${returnValue}`);
         }
-        return Math.round(thrust);
+        return Math.round(returnValue);
     },
-    adjustThrust = (speed, dist, angle) => {
+    adjustThrust = (speed, dist, angle, thrust) => {
         // If angle is too wide
-        if (Math.abs(angle) >= 90)
+        if (Math.abs(angle) >= disabledAngle)
             return 0;
         else {
-
             if (dist > boostDist && boostAvailable && angle === 0 && mapReady) {
                 boostAvailable = false;
                 return 'BOOST';
             } else
-                return setThrust(dist, speed, angle);
+                return setThrust(speed, dist, angle, thrust);
         }
     },
-    calculateGoal = (myPos, startPos, targetPos, angle) => {
-
-        //console.error(`startPos.x: ${startPos.x} startPos.y: ${startPos.y} targetPos.x: ${targetPos.x} targetPos.y: ${targetPos.y}`);
+    calculateGoal = (myPos, targetPos) => {
 
         let //m = targetPos.x - myPos.x === 0 ? 1000 : (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
-            m = (targetPos.y - startPos.y) / (targetPos.x - startPos.x),
+            m = (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
             b = targetPos.y - m * targetPos.x,
-            //targetR = targetRadius,
             // Calculate the two interference points
             x1 = (targetPos.x + targetRadius / Math.sqrt(1 + m * m)),
             x2 = (targetPos.x - targetRadius / Math.sqrt(1 + m * m)),
@@ -209,54 +320,26 @@ let checkpoints = [],
                 x: Math.round(x2),
                 y: Math.round(m * x2 + b)
             },
-            myPosition = new Point(startPos.x, startPos.y),
-            dist1 = myPosition.dist(point1),
-            dist2 = myPosition.dist(point2),
-            baseV,
-            vector;
+            myPosition = new Point(myPos.x, myPos.y);
 
-        //console.error(`point1.x: ${point1.x} point1.y: ${point1.y} point2.x: ${point2.x} point2.y: ${point2.y} pointDist1: ${Math.round(dist1)} pointDist2: ${Math.round(dist2)}`);
-        console.error(`targetRadius: ${Math.round(targetR)}`);
+        if (myPosition.distSquare(point1) < myPosition.distSquare(point2))
+            return new Checkpoint(point1.x, point1.y);
 
-        if (dist1 < dist2) {
-            if (mapReady)
-                baseV = baseVector(myPos, point1);
-            else
-                baseV = baseVector(startPos, point1);
-        } else {
-            if (mapReady)
-                baseV = baseVector(myPos, point2);
-            else
-                baseV = baseVector(startPos, point2);
-        }
-
-        vector = new Vector(baseV.x, baseV.y);
-        vector = vector.normalisedVector();
-
-        //return new Point(startPos.x + vector.x, startPos.y + vector.y);
-
-        console.error(`vector.x: ${vector.x * vectorMagnitude} vector.y: ${vector.y * vectorMagnitude}`);
-
-        return {
-            x: vector.x * vectorMagnitude,
-            y: vector.y * vectorMagnitude
-        }
-
+        return new Checkpoint(point2.x, point2.y);
     },
-    checkCollision = (threshold, myPos, myPod, opponentPos, opponentPod) => {
+    checkCollision = (threshold, myPod, opponentPod) => {
 
-    let drag = 0.85,
-        myPredictedPosition = myPod.pos.add(myPod.velocity),
-        opponentPredictedForce = opponentPod.velocity.multiply(1 / drag).subtract(opponentPod.lastVelocity()),
-        opponentPredictedVelocity = opponentPod.velocity.add(opponentPredictedForce),
-        opponentPredictedPosition = opponentPod.pos.add(opponentPredictedVelocity),
-        myPoint = new Point(myPos.x + myPredictedPosition.x, myPos.y + myPredictedPosition.y),
-        opponentPoint = new Point(opponentPos.x + opponentPredictedPosition.x, opponentPos.y + opponentPredictedPosition.y);
+        let drag = 0.85,
+            myPredictedPosition = myPod.nextPos(),
+            opponentPredictedForce = opponentPod.velocity().multiply(1 / drag).subtract(opponentPod.lastVelocity()),
+            opponentPredictedVelocity = opponentPod.velocity().add(opponentPredictedForce),
+            opponentPredictedPosition = opponentPod.pos().add(opponentPredictedVelocity),
+            myPoint = new Point(myPredictedPosition.x, myPredictedPosition.y),
+            opponentPoint = new Point(opponentPredictedPosition.x, opponentPredictedPosition.y);
 
-    return myPoint.dist(opponentPoint) < (myPod.radius + opponentPod.radius) && opponentPredictedVelocity.subtract(myPod.velocity).magnitude() > threshold;
+        return myPoint.dist(opponentPoint) < collisionDistToOpp && opponentPredictedVelocity.subtract(myPod.velocity()).magnitude() > threshold;
+    };
 
-
-};
 
 while (true) {
 
@@ -279,8 +362,6 @@ while (true) {
             y: parseInt(opponentData[1])
         };
 
-
-
     if (firstRound) {
         myLastPos.x = myPos.x;
         myLastPos.y = myPos.y;
@@ -289,102 +370,33 @@ while (true) {
         firstRound = false;
     }
 
-    let myLastVelocity = [],
-        opponentLastVelocity = [],
-        makeVector = {
-        myPos: function (myPos) {
-            let baseV = baseVector(myPos, myPos);
-            return new Vector(baseV.x, baseV.y);
-        },
-        opponentPos: function (opponentPos) {
-            let baseV = baseVector(opponentPos, opponentPos);
-            return new Vector(baseV.x, baseV.y);
-        },
-        targetPos: function (targetPos) {
-            let baseV = baseVector(targetPos, targetPos);
-            return new Vector(baseV.x, baseV.y);
-        },
-        myPodVelocity: function (myLastPos, myPos) {
-            let baseV = baseVector(myLastPos, myPos);
-            return new Vector(baseV.x, baseV.y);
-        },
-        opponentPodVelocity: function (opponentLastPos, opponentPos) {
-                let baseV = baseVector(opponentLastPos, opponentPos);
-                return new Vector(baseV.x, baseV.y);
-            }
-    },
-        myPod = {
-            pos: makeVector.myPos(myPos),
-            velocity: makeVector.myPodVelocity(myLastPos, myPos),
-            lastVelocity: function () {
-
-                let returnValue;
-                myLastVelocity.push(this.velocity);
-
-                if (myLastVelocity.length === 1)
-                    returnValue = myLastVelocity[0];
-                else {
-                    returnValue = myLastVelocity[0];
-                    myLastVelocity.slice(0);
-                }
-                return returnValue;
-            },
-
-            radius: 400,
-            target: makeVector.targetPos(checkpoint.pos),
-            desiredVelocity: this.target.subtract(this.pos).normalisedVector().multiply(maxVelocity),
-            steeringForce: this.desiredVelocity.subtract(this.velocity),
-
-            nextPos: this.pos.add(this.velocity),
-            turn: this.target.subtract(this.pos).normalisedVector()
-        },
-        opponentPod = {
-            pos: makeVector.opponentPos(opponentPos),
-            velocity: makeVector.opponentPodVelocity(opponentLastPos, opponentPos),
-            lastVelocity: function () {
-
-                let returnValue;
-                opponentLastVelocity.push(this.velocity);
-
-                if (opponentLastVelocity.length === 1)
-                    returnValue = opponentLastVelocity[0];
-                else {
-                    returnValue = opponentLastVelocity[0];
-                    opponentLastVelocity.slice(0);
-                }
-                return returnValue;
-            },
-            nextPos: this.pos.add(this.velocity),
-            radius: 400
-        };
-
-
-
-
-
-
-
-
-
+    let myPod,
+        opponentPod;
 
     if (mapReady) {
         checkpointIndex = findCoords(checkpoint.pos);
         nextCheckPointIndex = checkpointIndex + 1 === checkpoints.length ? 0 : checkpointIndex + 1;
-        targetPoint = targetPoint = calculateGoal(myPos, checkpoints[nextCheckPointIndex], checkpoint.pos, checkpoint.angle);
+        targetPoint = calculateGoal(checkpoints[nextCheckPointIndex], checkpoint.pos);
+        myPod = new Pod(myPos, myLastPos, targetPoint);
+        opponentPod = new Pod(opponentPos, opponentLastPos, targetPoint);
     } else {
         checkpointIndex = fillMap(checkpoint.pos);
-        targetPoint = calculateGoal(myPos, myPos, checkpoint.pos, checkpoint.angle);
+        targetPoint = calculateGoal(myPos, checkpoint.pos);
+        myPod = new Pod(myPos, myLastPos, targetPoint);
+        opponentPod = new Pod(opponentPos, opponentLastPos, targetPoint);
     }
     let mySpeed = countSpeed(myLastPos, myPos),
         collisionDetected = false,
         thrust;
 
-    if (!collisionDetected || collisionTimer === 0)
-        collisionDetected = checkCollusion(myPos, opponentPos);
+    if (!myPod.activeShield || myPod.shieldTimer === 0)
+        myPod.activateShield(checkCollision(collisionThreshold, myPod, opponentPod));
     else
-        collisionTimer -= 1;
+        myPod.decrementShieldTimer();
 
-    thrust = collisionDetected ? 'SHIELD' : adjustThrust(mySpeed, checkpoint.dist, checkpoint.angle);
+    console.error(`calculatedVelocity: ${myPod.calculatedVelocity().x} ${myPod.calculatedVelocity().y}`);
+
+    thrust = myPod.shield ? 'SHIELD' : adjustThrust(mySpeed, checkpoint.dist, checkpoint.angle, myPod.calculatedVelocity().magnitude());
 
     log.basic = `nextCP_dist: ${checkpoint.dist} nextCP_angle: ${checkpoint.angle} thrust: ${thrust} speed: ${mySpeed} collusion: ${collisionDetected}`;
     log.incompleteMap = `mapReady: ${mapReady} mapLength: ${checkpoints.length} x: ${checkpoints[checkpointIndex].x} y: ${checkpoints[checkpointIndex].y} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex}`;

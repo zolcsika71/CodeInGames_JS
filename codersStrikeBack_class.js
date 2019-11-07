@@ -473,7 +473,7 @@ let checkpoints = [],
         break: 100 / gaussValue(gauss.break.a, gauss.break), // x = speed
         targetRadius: targetRadius / gaussValue(0, gauss.targetRadius) // x = angle
     },
-    //gaussValue = (gauss, value) => Math.round(gauss.a / Math.pow(Math.E, (Math.pow(value - gauss.b, 2)) / (2 * gauss.c * gauss.c))),
+    //gaussValue = (gauss, value) => Math.round(gauss.a / Math.pow(Math.E, (Math.pow(value - gauss.b, 2)) / (2 * gauss.c * gauss.c))), // a: max value, b: mean, c: bell width
     setThrust = (dist, speed, angle) => {
 
         let thrust;
