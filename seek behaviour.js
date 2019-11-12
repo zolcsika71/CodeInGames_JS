@@ -3,9 +3,9 @@
 const
     collisionDistToOpp = 800, // pod radius * 2
     collisionThreshold = 100, // opponent velocity - my velocity
-    boostDist = 4000, // Minimum distance for activating boost
+    boostDist = 3000, // Minimum distance for activating boost
     targetRadius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
-    maxVelocity = 600,
+    maxVelocity = 10,
     maxThrust = 100,
     breakDist = 1300,
     disabledAngle = 45 + 18,
@@ -133,9 +133,12 @@ class Vector {
         return this.divide(this.magnitude());
     }
     truncate(max) {
-        let i = max / this.magnitude();
+        let i = max / this.magnitude(),
+            velocity;
         i = i < 1 ? i : 1;
-        return this.multiply(i);
+        velocity = this.multiply(i);
+
+        return velocity;
     }
 }
 class Point {
@@ -200,7 +203,7 @@ class Pod {
     }
     velocity () {
         let baseV = baseVector(this.lastPosition, this.position);
-        console.error(`velocity: ${this.position.x} ${this.position.y}`);
+        //console.error(`velocity: ${baseV.x} ${baseV.y}`);
         return new Vector(baseV.x, baseV.y);
     }
     lastVelocity () {
@@ -222,7 +225,7 @@ class Pod {
     }
     seekDesiredVelocity () {
         let returnValue = this.targetPos().subtract(this.pos()).normalisedVector().multiply(maxVelocity);
-        console.error(`desiredVelocity: ${returnValue.x} ${returnValue.y}`);
+        //console.error(`desiredVelocity: ${returnValue.x} ${returnValue.y}`);
         return returnValue;
     }
     seekSteeringForce () {
@@ -230,12 +233,11 @@ class Pod {
     }
     calculatedSeekVelocity () {
 
-        console.error(`steeringForce: ${this.seekSteeringForce().x} ${this.seekSteeringForce().y}`);
+        //console.error(`SEEK steeringForce: ${this.seekSteeringForce().x} ${this.seekSteeringForce().y}`);
 
-        let velocity = this.velocity().add(this.seekSteeringForce()).truncate(maxVelocity),
-            velocityMagnitude = velocity.magnitude();
+        let velocity = this.velocity().add(this.seekSteeringForce()).truncate(maxVelocity);
 
-        console.error(`velocity: ${velocity.x} ${velocity.y} magnitude: ${velocity.magnitude()}`);
+        //console.error(`SEEK velocity: ${velocity.x} ${velocity.y} magnitude: ${velocity.magnitude()}`);
 
         //if (velocityMagnitude > maxVelocity)
         //    velocity = velocity.normalisedVector().multiply(maxVelocity);
@@ -253,10 +255,10 @@ class Pod {
     }
     calculatedFleeVelocity () {
 
-        console.error(`flee steeringForce: ${this.fleeSteeringForce().x} ${this.fleeSteeringForce().y}`);
+        //console.error(`FLEE steeringForce: ${this.fleeSteeringForce().x} ${this.fleeSteeringForce().y}`);
 
         let velocity = this.velocity().add(this.fleeSteeringForce()).truncate(maxVelocity);
-        console.error(`velocity: ${velocity.x} ${velocity.y} magnitude: ${velocity.magnitude()}`);
+        //console.error(`FLEE velocity: ${velocity.x} ${velocity.y} magnitude: ${velocity.magnitude()}`);
 
         //if (velocityMagnitude > maxVelocity)
         //    velocity = velocity.truncate(maxVelocity);
@@ -267,15 +269,15 @@ class Pod {
         return this.pos().add(this.calculatedFleeVelocity());
     }
     arrivalVelocity () {
-        let velocity = this.velocity() + this.calculatedFleeVelocity(),
+        let velocity = this.velocity().add(this.calculatedFleeVelocity()),
             position = this.nextFleePos(),
             desiredVelocity = this.targetPos().subtract(position),
             distance = desiredVelocity.magnitude();
 
         if (distance < breakDist)
-            desiredVelocity = desiredVelocity.normalisedVector().multiply(maxVelocity).multiply(distance / breakDist);
+            desiredVelocity = desiredVelocity.normalisedVector().multiply(maxThrust).multiply(distance / breakDist);
         else
-            desiredVelocity = desiredVelocity.normalisedVector().multiply(maxVelocity);
+            desiredVelocity = desiredVelocity.normalisedVector().multiply(maxThrust);
 
         return desiredVelocity.subtract(velocity);
 
@@ -306,6 +308,9 @@ let tempVelocity = [],
     nextCheckPointIndex,
     lastCheckPointIndex,
     targetPoint,
+    myPod,
+    opponentPod,
+    lastPos,
     findCoords = checkpoint => checkpoints.findIndex(i => i.x === checkpoint.x && i.y === checkpoint.y),
     fillMap = checkpoint => {
         let index = findCoords(checkpoint);
@@ -338,12 +343,13 @@ let tempVelocity = [],
 
         let returnValue;
 
-        if (dist >= breakDist || (Math.abs(angle) > 3)) {
+        //if (dist >= breakDist || (Math.abs(angle) > 3)) {
+        if (dist >= breakDist) {
             returnValue = gaussValue(angle, gauss.far) * gaussConst.far;
             console.error(`gaussValue far: ${returnValue}`);
         } else {
-            //returnValue = gaussValue(speed, gauss.break);
-            returnValue = myPod.arrivalVelocity().truncate(maxThrust).magnitude();
+            returnValue = gaussValue(speed, gauss.break);
+            //returnValue = myPod.arrivalVelocity().truncate(maxThrust).magnitude();
             console.error(`gaussValue break: ${returnValue}`);
         }
         return Math.round(returnValue);
@@ -435,10 +441,6 @@ while (true) {
         firstRound = false;
     }
 
-    let myPod,
-        opponentPod,
-        lastPos;
-
     lastPos = lastPosition(myPos, myTempPosition);
     myLastPos = lastPos.lastPos;
     myTempPosition = lastPos.tempVariable;
@@ -448,15 +450,17 @@ while (true) {
     opponentTempPosition = lastPos.tempVariable;
 
 
-    let mySpeed = countSpeed(myLastPos, myPos),
+    let xOffset,
+        yOffset,
+        magnitude,
+        mySpeed = countSpeed(myLastPos, myPos),
         opponentSpeed = countSpeed(opponentLastPos, opponentPos),
-        collisionDetected = false,
         thrust;
 
     if (mapReady) {
         checkpointIndex = findCoords(checkpoint.pos);
         nextCheckPointIndex = checkpointIndex + 1 === checkpoints.length ? 0 : checkpointIndex + 1;
-        lastCheckPointIndex = checkpointIndex - 1 < 0 ? checkpoints.length : checkpointIndex - 1;
+        lastCheckPointIndex = checkpointIndex - 1 < 0 ? 0 : checkpointIndex - 1;
         targetPoint = calculateGoal(checkpoints[nextCheckPointIndex], checkpoint.pos, checkpoint.angle);
         myPod = new Pod(myPos, myLastPos, targetPoint);
         opponentPod = new Pod(opponentPos, opponentLastPos, checkpoint.pos);
@@ -472,26 +476,40 @@ while (true) {
     else
         myPod.decrementShieldTimer();
 
-    console.error(`calculatedVelocity: ${myPod.calculatedSeekVelocity().x} ${myPod.calculatedSeekVelocity().y} magnitude: ${myPod.calculatedSeekVelocity().magnitude()}`);
-
     thrust = myPod.shield ? 'SHIELD' : adjustThrust(mySpeed, checkpoint.distance, checkpoint.angle);
 
     if (myPod.shield)
         myPod.decrementShieldTimer();
 
+    if (mapReady && !lastCheckPointIndex)
+        lastCheckPointIndex = 0;
+
+    if (mapReady && checkpoints[lastCheckPointIndex].dist(myPos) <= breakDist) {
+        console.error(`mapReady`);
+        xOffset = myPod.calculatedFleeVelocity().x;
+        yOffset = myPod.calculatedFleeVelocity().y;
+        magnitude = myPod.calculatedFleeVelocity().magnitude();
+    } else if (checkpoint.distance > breakDist) {
+        console.error(`checkPoint dist FAR: ${checkpoint.distance}`);
+        xOffset = myPod.calculatedSeekVelocity().x;
+        yOffset = myPod.calculatedSeekVelocity().y;
+        magnitude = myPod.calculatedSeekVelocity().magnitude();
+    } else if (checkpoint.distance <= breakDist) {
+        console.error(`checkPoint dist close: ${checkpoint.distance}`);
+        xOffset = myPod.calculatedFleeVelocity().x;
+        yOffset = myPod.calculatedFleeVelocity().y;
+        magnitude = myPod.calculatedFleeVelocity().magnitude();
+    }
+
     log.basic = `nextCP_dist: ${checkpoint.distance} nextCP_angle: ${checkpoint.angle} thrust: ${thrust} speed: ${mySpeed} collusion: ${myPod.shield}`;
-    log.incompleteMap = `mapReady: ${mapReady} mapLength: ${checkpoints.length} x: ${checkpoints[checkpointIndex].x} y: ${checkpoints[checkpointIndex].y} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex}`;
+    log.incompleteMap = `mapReady: ${mapReady} mapLength: ${checkpoints.length} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex} CPIndexLast ${lastCheckPointIndex}`;
+    log.offset = `x: ${xOffset} y: ${yOffset} magnitude: ${magnitude}`;
 
-
+    console.error(log.offset);
     console.error(log.basic);
     console.error(log.incompleteMap);
 
-    if (mapReady && checkpoints[lastCheckPointIndex].dist(myPos) < breakDist)
-        console.log(`${myPos.x + myPod.arrivalVelocity().x} ${myPos.y + myPod.arrivalVelocity().y} ${thrust} ${thrust}`);
-    else if (checkpoint.dist > boostDist)
-        console.log(`${myPos.x + myPod.calculatedSeekVelocity().x} ${myPos.y + myPod.calculatedSeekVelocity().y} ${thrust} ${thrust}`);
-    else if (checkpoint.dist < breakDist)
-        console.log(`${myPos.x + myPod.calculatedFleeVelocity().x} ${myPos.y + myPod.calculatedFleeVelocity().y} ${thrust} ${thrust}`);
+    console.log(`${Math.round(myPos.x + xOffset)} ${Math.round(myPos.y + yOffset)} ${thrust} ${thrust}`);
 
 }
 
