@@ -22,7 +22,7 @@ const
             a: 0, // min x
             b: 600, // max x
             mu: 0, // location parameter
-            sigma: 1000 // scale parameter
+            sigma: 250 // scale parameter
         },
         targetRadius: { // x: targetRadius
             a: -90, // min x
@@ -231,6 +231,8 @@ class Pod {
         //let velocity = this.velocity().add(this.seekSteeringForce()).truncate(maxVelocity);
         let velocity = this.velocity().add(this.seekSteeringForce());
 
+        //velocity = velocity.truncate(this.velocity());
+
 
         //velocity.x = velocity.x < 0 ? Math.floor(velocity.x) : Math.ceil(velocity.x);
         //velocity.y = velocity.y < 0 ? Math.floor(velocity.y) : Math.ceil(velocity.y);
@@ -238,7 +240,10 @@ class Pod {
         return velocity;
     }
     nextSeekPos () {
-        return this.pos().add(this.calculatedSeekVelocity().truncate(this.velocity().magnitude()));
+        //return this.pos().add(this.calculatedSeekVelocity().truncate(this.velocity()));
+        let truncatedSeekVelocity = this.calculatedSeekVelocity().truncate(this.velocity().magnitude());
+        return this.pos().add(truncatedSeekVelocity);
+
     }
     fleeDesiredVelocity () {
         return this.seekDesiredVelocity().multiply(-1);
@@ -505,7 +510,7 @@ while (true) {
     log.incompleteMap = `mapReady: ${mapReady} mapLength: ${checkpoints.length} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex} CPIndexLast ${lastCheckPointIndex}`;
     log.offset = `x: ${xOffset} y: ${yOffset}`;
     log.speed = `speed: ${Math.round(myPod.velocity().magnitude())} lastSpeed: ${Math.round(myLastVelocity.magnitude())}`;
-    log.pos = `myPos -> x: ${myPos.x} y: ${myPos.y} nextPos -> x: ${myPod.nextSeekPos().x} y: ${myPod.nextSeekPos().y} `;
+    log.pos = `myPos -> x: ${myPos.x} y: ${myPos.y} nextPos -> x: ${Math.round(myPod.nextSeekPos().x)} y: ${Math.round(myPod.nextSeekPos().y)} `;
 
     console.error(log.offset);
     console.error(log.basic);
