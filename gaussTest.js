@@ -64,13 +64,13 @@ let gauss = {
         a: -90, // min x
         b: 90, // max x
         mu: 0, // location parameter
-        sigma: 30 // scale parameter
+        sigma: 50 // scale parameter
     },
     break: { // x: speed
         a: 0, // min x
         b: 600, // max x
         mu: 0, // location parameter
-        sigma: 100 // scale parameter
+        sigma: 250 // scale parameter
     },
     targetRadius: { // x: targetRadius
         a: -90, // min x
@@ -78,12 +78,12 @@ let gauss = {
         mu: 0, // location parameter
         sigma: 10 // scale parameter
     }
-    },
+},
     gaussConst = {
         far: 100 / pdf(0, gauss.far),
         break: 100 / pdf(gauss.break.a, gauss.break),
         targetRadius: 350 / pdf(0, gauss.targetRadius)
     };
-for (let x = 0; x <= 600; x += 10) {
-    console.log(x, pdf(x, gauss.break) * gaussConst.break)
+for (let x = -90; x <= 90; x += 10) {
+    console.log(x, pdf(x, gauss.far) * gaussConst.far)
 }
