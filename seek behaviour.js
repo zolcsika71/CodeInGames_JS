@@ -3,13 +3,16 @@
 const
     collisionDistToOpp = 800, // pod radius * 2
     collisionThreshold = 500, // opponent velocity - my velocity
-    boostDist = 3000, // Minimum distance for activating boost
+    boostDist = 6000, // Minimum distance for activating boost
     targetRadius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
     maxVelocity = 10,
     maxThrust = 100,
     breakDist = 1300,
     //disabledAngle = 45 + 18,
-    disabledAngle = 90,
+    disabledAngle = 90 - 18,
+    p = 0.03,
+    i = 0,
+    d = 0.02,
 
     gauss = {
         far: { // x: angle
@@ -117,6 +120,30 @@ class LIFO {
         return returnValue;
     }
 }
+class PID {
+    constructor (p, i, d) {
+        this.p = p;
+        this.i = i;
+        this.d = d;
+        this.min = -100;
+        this.max = 100;
+        this.target = 0;
+        this.errorSum = 0;
+        this.output = 0;
+        this.lastInput = 0;
+    }
+    compute (input) {
+        let error = this.target - input,
+            inputDiff = input - this.lastInput;
+
+        this.errorSum = Math.max(this.min, Math.min(this.max, this.errorSum + (this.i * error)));
+        this.output = Math.max(this.min, Math.min(this.max, (this.p * error) + this.errorSum - (this.d * inputDiff)));
+        this.lastInput = input;
+
+        return this.output;
+
+    }
+}
 class Vector {
     constructor(x, y) {
         this.x = x;
@@ -213,36 +240,25 @@ class Pod {
     }
     velocity () {
         let baseV = baseVector(this.lastPosition, this.position);
-        //console.error(`velocity: ${baseV.x} ${baseV.y}`);
         return new Vector(baseV.x, baseV.y);
     }
     seekDesiredVelocity () {
-        //console.error(`desiredVelocity: ${returnValue.x} ${returnValue.y}`);
-        //return this.targetPos().subtract(this.pos()).normalisedVector().multiply(maxVelocity);
         return this.targetPos().subtract(this.pos());
     }
     seekSteeringForce () {
         return this.shield ? this.seekDesiredVelocity().subtract(this.velocity()).divide(10) : this.seekDesiredVelocity().subtract(this.velocity());
     }
     calculatedSeekVelocity () {
-
-        //console.error(`SEEK steeringForce: ${this.seekSteeringForce().x} ${this.seekSteeringForce().y}`);
-
-        //let velocity = this.velocity().add(this.seekSteeringForce()).truncate(maxVelocity);
-        let velocity = this.velocity().add(this.seekSteeringForce());
-
-        //velocity = velocity.truncate(this.velocity());
-
-
-        //velocity.x = velocity.x < 0 ? Math.floor(velocity.x) : Math.ceil(velocity.x);
-        //velocity.y = velocity.y < 0 ? Math.floor(velocity.y) : Math.ceil(velocity.y);
-
-        return velocity;
+        //return this.velocity().add(this.seekSteeringForce()).normalisedVector().multiply(maxVelocity);
+        //return this.velocity().add(this.seekSteeringForce()).truncate(maxVelocity);
+        return this.velocity().add(this.seekSteeringForce());
     }
     nextSeekPos () {
         //return this.pos().add(this.calculatedSeekVelocity().truncate(this.velocity()));
-        let truncatedSeekVelocity = this.calculatedSeekVelocity().truncate(this.velocity().magnitude());
-        return this.pos().add(truncatedSeekVelocity);
+
+        //let truncatedSeekVelocity = this.calculatedSeekVelocity().truncate(this.velocity().magnitude());
+        //return this.pos().add(truncatedSeekVelocity);
+        return this.pos().add(this.velocity());
 
     }
     fleeDesiredVelocity () {
@@ -292,10 +308,12 @@ class Pod {
     }
 
 }
-let myLastPosClass = new LIFO(),
+let maxSpeed = 0,
+    myLastPosClass = new LIFO(),
     opponentLastPosClass = new LIFO(),
     myLastVelocityClass = new LIFO(),
     opponentLastVelocityClass = new LIFO(),
+    pid = new PID(p, i, d),
     myLastPos,
     opponentLastPos,
     myLastVelocity,
@@ -347,8 +365,9 @@ let myLastPosClass = new LIFO(),
             returnValue = gaussValue(angle, gauss.far) * gaussConst.far;
             console.error(`speed far: ${returnValue}`);
         } else {
-            returnValue = gaussValue(speed, gauss.break) * gaussConst.break;
+            //returnValue = gaussValue(speed, gauss.break) * gaussConst.break;
             //returnValue = myPod.arrivalVelocity().truncate(maxThrust).magnitude();
+            returnValue = pid.compute(dist) * -1;
             console.error(`speed break: ${returnValue}`);
         }
         return Math.round(returnValue);
@@ -446,6 +465,9 @@ while (true) {
         mySpeed = countSpeed(myLastPos, myPos),
         thrust;
 
+    if (mySpeed > maxSpeed)
+        maxSpeed = mySpeed;
+
     if (mapReady) {
         checkpointIndex = findCoords(checkpoint.pos);
         nextCheckPointIndex = checkpointIndex + 1 === checkpoints.length ? 0 : checkpointIndex + 1;
@@ -483,6 +505,9 @@ while (true) {
 
     thrust = myPod.shield ? 'SHIELD' : adjustThrust(mySpeed, checkpoint.distance, checkpoint.angle);
 
+    if (mySpeed > maxSpeed && thrust !== 'BOOST')
+        maxSpeed = mySpeed;
+
     if (mapReady && !lastCheckPointIndex)
         lastCheckPointIndex = 0;
     /*
@@ -517,6 +542,7 @@ while (true) {
     //console.error(log.incompleteMap);
     console.error(log.speed);
     console.error(log.pos);
+    console.error(maxSpeed);
 
 
 

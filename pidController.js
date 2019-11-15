@@ -52,16 +52,16 @@ PID.prototype.compute = function(input) {
     return this.output
 };
 
-let pid = new PID(1, 0.5, 2);
+let pid = new PID(0.03, 0, 0.02);
 pid.setSampleTime(1000);
-pid.setOutputLimits(0, 100);
-pid.setTarget(100);
+pid.setOutputLimits(-100, 100);
+pid.setTarget(0);
+
+let processVariable = 3000;
 
 setInterval(function () {
-    let sign = Math.random(),
-        //input = sign < 0.5 ? Math.round(Math.random() * 90) : Math.round(Math.random() * 90) * -1,
-        processVariable = 10,
-        output = pid.compute(processVariable);
 
+    let output = pid.compute(processVariable) * -1;
     console.log(`in: ${processVariable} out: ${output}`);
+    processVariable -= 100;
 }, 500);
