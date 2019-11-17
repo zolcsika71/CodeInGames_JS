@@ -325,11 +325,13 @@ let maxSpeed = 0,
     opponentLastPosClass = new LIFO(),
     myLastVelocityClass = new LIFO(),
     opponentLastVelocityClass = new LIFO(),
+    lastNextCPDistClass = new LIFO(),
     pid = new PID(p, i, d),
     myLastPos,
     opponentLastPos,
     myLastVelocity,
     opponentLastVelocity,
+    lastNextCPDist,
     checkpoints = [],
     mapReady = false,
     boostAvailable = true,
@@ -368,15 +370,15 @@ let maxSpeed = 0,
         break: maxThrust / gaussValue(gauss.break.a, gauss.break),
         targetRadius: targetRadius / gaussValue(0, gauss.targetRadius)
     },
-    setThrust = (mySpeed, myLastSpeed, dist, angle) => {
+    setThrust = (flee, mySpeed, myLastSpeed, dist, angle) => {
 
         let returnValue;
 
         //if (dist >= breakDist || (Math.abs(angle) > 3)) {
-        if (dist >= breakDist) {
+        if (dist >= breakDist || flee) {
             returnValue = gaussValue(angle, gauss.far) * gaussConst.far;
             console.error(`speed far: ${returnValue} angle: ${angle}`);
-        } else if (dist < breakDist) {
+        } else {
             //returnValue = gaussValue(speed, gauss.break) * gaussConst.break;
             //returnValue = myPod.arrivalVelocity().truncate(maxThrust).magnitude();
             returnValue = pid.compute(dist) * -1;
@@ -384,7 +386,7 @@ let maxSpeed = 0,
         }
         return Math.round(returnValue);
     },
-    adjustThrust = (mySpeed, myLastSpeed, dist, angle) => {
+    adjustThrust = (flee, mySpeed, myLastSpeed, dist, angle) => {
         // If angle is too wide
         if (Math.abs(angle) >= disabledAngle) {
             console.error(`speed angle: 0`);
@@ -394,7 +396,7 @@ let maxSpeed = 0,
                 boostAvailable = false;
                 return 'BOOST';
             } else
-                return setThrust(myPod, dist, angle);
+                return setThrust(flee, mySpeed, myLastSpeed, dist, angle);
         }
     },
     calculateGoal = (myPos, targetPos) => {
@@ -470,10 +472,14 @@ while (true) {
 
     myLastPosClass.addItem(myPos);
     opponentLastPosClass.addItem(opponentPos);
+    lastNextCPDistClass.addItem(checkpoint.distance);
     myLastPos = myLastPosClass.lastItem();
     opponentLastPos = opponentLastPosClass.lastItem();
+    lastNextCPDist = lastNextCPDistClass.lastItem();
 
-    let xOffset,
+
+    let flee = checkpoint.distance > lastNextCPDist && checkpoint.distance < breakDist,
+        xOffset,
         yOffset,
         mySpeed,
         myLastSpeed,
@@ -510,6 +516,7 @@ while (true) {
     opponentLastVelocity = opponentLastVelocityClass.lastItem();
 
     //checkpoint.angle = myPod.velocity().angleTo(myPod.seekDesiredVelocity());
+
     mySpeed = Math.round(myPod.velocity().magnitude());
     myLastSpeed = Math.round(myLastVelocity.magnitude());
 
@@ -519,7 +526,7 @@ while (true) {
     }else
         myPod.activateShield(checkCollision(collisionThreshold, myPod, opponentPod));
 
-    thrust = myPod.shield ? 'SHIELD' : adjustThrust(mySpeed, myLastSpeed, checkpoint.distance, checkpoint.angle);
+    thrust = myPod.shield ? 'SHIELD' : adjustThrust(flee, mySpeed, myLastSpeed, checkpoint.distance, checkpoint.angle);
 
     if (mySpeed > maxSpeed && thrust !== 'BOOST')
         maxSpeed = mySpeed;
