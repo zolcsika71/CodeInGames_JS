@@ -1,5 +1,16 @@
 "use strict";
 
+/*
+
+A boost is in fact an acceleration of 650.
+
+How exactly works thrust?
+Why max_speed(thrust) is equal to 51 if thrust =10
+And for thrust =10+n10
+max_speed(thrust) = 51+57n
+(checking by hand)
+ */
+
 const
     collisionDistToOpp = 800, // pod radius * 2
     collisionThreshold = 500, // opponent velocity - my velocity
@@ -185,7 +196,7 @@ class Vector {
 
         //console.error(`stuff: ${dot} ${m1} ${m2}`);
 
-        return Math.round(angleRadian * (180 / Math.PI));
+        return Math.round(toDegrees(angleRadian));
     }
 }
 class Point {
@@ -265,12 +276,13 @@ class Pod {
         //return this.velocity().add(this.seekSteeringForce()).truncate(maxVelocity);
         return this.velocity().add(this.seekSteeringForce());
     }
+    acceleration () {
+        return this.seekSteeringForce().truncate(this.velocity().magnitude());
+    }
     nextSeekPos () {
-        //return this.pos().add(this.calculatedSeekVelocity().truncate(this.velocity()));
-
-        //let truncatedSeekVelocity = this.calculatedSeekVelocity().truncate(this.velocity().magnitude());
-        //return this.pos().add(truncatedSeekVelocity);
-        return this.pos().add(this.velocity());
+        let velocity = this.velocity().add(this.acceleration()).multiply(0.85);
+        //console.error(`velocity -> x: ${velocity.x} y: ${velocity.y}`);
+        return this.pos().add(velocity);
 
     }
     fleeDesiredVelocity () {
@@ -356,14 +368,6 @@ let maxSpeed = 0,
         else
             return index;
     },
-    countSpeed = (position, target) => {
-
-        let myPosition = new Point(position.x, position.y),
-            speed = myPosition.dist(target);
-
-        return Math.round(speed);
-
-    },
     gaussValue = (value, gauss) => pdf(value, gauss),
     gaussConst = {
         far: maxThrust / gaussValue(0, gauss.far),
@@ -423,6 +427,14 @@ let maxSpeed = 0,
             return new Checkpoint(point1.x, point1.y);
 
         return new Checkpoint(point2.x, point2.y);
+    },
+    countSpeed = (position, target) => {
+
+        let myPosition = new Point(position.x, position.y),
+            speed = myPosition.dist(target);
+
+        return Math.round(speed);
+
     },
     checkCollision = (threshold, myPod, opponentPod) => {
 
@@ -485,8 +497,7 @@ while (true) {
         myLastSpeed,
         thrust;
 
-    if (mySpeed > maxSpeed)
-        maxSpeed = mySpeed;
+
 
     if (mapReady) {
         checkpointIndex = findCoords(checkpoint);
@@ -498,6 +509,7 @@ while (true) {
         console.error(`seekDesiredVelocity: x: ${myPod.seekDesiredVelocity().x} y: ${myPod.seekDesiredVelocity().y} magnitude: ${Math.round(myPod.seekDesiredVelocity().magnitude())}`);
         console.error(`seekSteeringForce: x: ${myPod.seekSteeringForce().x} y: ${myPod.seekSteeringForce().y} magnitude: ${Math.round(myPod.seekSteeringForce().magnitude())}`);
         console.error(`calculatedSeekVelocity: x: ${myPod.calculatedSeekVelocity().x} y: ${myPod.calculatedSeekVelocity().y} magnitude: ${Math.round(myPod.calculatedSeekVelocity().magnitude())}`);
+        console.error(`acceleration: ${Math.round(myPod.acceleration().magnitude())}`);
         opponentPod.setPod(opponentPos, opponentLastPos, checkpoint.pos);
     } else {
         checkpointIndex = fillMap(checkpoint);
@@ -507,6 +519,7 @@ while (true) {
         console.error(`seekDesiredVelocity: x: ${myPod.seekDesiredVelocity().x} y: ${myPod.seekDesiredVelocity().y} magnitude: ${Math.round(myPod.seekDesiredVelocity().magnitude())}`);
         console.error(`seekSteeringForce: x: ${myPod.seekSteeringForce().x} y: ${myPod.seekSteeringForce().y} magnitude: ${Math.round(myPod.seekSteeringForce().magnitude())}`);
         console.error(`calculatedSeekVelocity: x: ${myPod.calculatedSeekVelocity().x} y: ${myPod.calculatedSeekVelocity().y} magnitude: ${Math.round(myPod.calculatedSeekVelocity().magnitude())}`);
+        console.error(`acceleration: ${Math.round(myPod.acceleration().magnitude())}`);
         opponentPod.setPod(opponentPos, opponentLastPos, checkpoint.pos);
     }
 
@@ -517,8 +530,11 @@ while (true) {
 
     //checkpoint.angle = myPod.velocity().angleTo(myPod.seekDesiredVelocity());
 
-    mySpeed = Math.round(myPod.velocity().magnitude());
+    mySpeed = countSpeed(myLastPos, myPos);
     myLastSpeed = Math.round(myLastVelocity.magnitude());
+
+    if (mySpeed > maxSpeed)
+        maxSpeed = mySpeed;
 
     if (myPod.shield) {
         myPod.decrementShieldTimer();
