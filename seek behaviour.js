@@ -368,7 +368,7 @@ let maxSpeed = 0,
         break: maxThrust / gaussValue(gauss.break.a, gauss.break),
         targetRadius: targetRadius / gaussValue(0, gauss.targetRadius)
     },
-    setThrust = (speed, dist, angle) => {
+    setThrust = (mySpeed, myLastSpeed, dist, angle) => {
 
         let returnValue;
 
@@ -376,7 +376,7 @@ let maxSpeed = 0,
         if (dist >= breakDist) {
             returnValue = gaussValue(angle, gauss.far) * gaussConst.far;
             console.error(`speed far: ${returnValue} angle: ${angle}`);
-        } else {
+        } else if (dist < breakDist) {
             //returnValue = gaussValue(speed, gauss.break) * gaussConst.break;
             //returnValue = myPod.arrivalVelocity().truncate(maxThrust).magnitude();
             returnValue = pid.compute(dist) * -1;
@@ -384,7 +384,7 @@ let maxSpeed = 0,
         }
         return Math.round(returnValue);
     },
-    adjustThrust = (speed, dist, angle) => {
+    adjustThrust = (mySpeed, myLastSpeed, dist, angle) => {
         // If angle is too wide
         if (Math.abs(angle) >= disabledAngle) {
             console.error(`speed angle: 0`);
@@ -394,7 +394,7 @@ let maxSpeed = 0,
                 boostAvailable = false;
                 return 'BOOST';
             } else
-                return setThrust(speed, dist, angle);
+                return setThrust(myPod, dist, angle);
         }
     },
     calculateGoal = (myPos, targetPos) => {
@@ -475,7 +475,8 @@ while (true) {
 
     let xOffset,
         yOffset,
-        mySpeed = countSpeed(myLastPos, myPos),
+        mySpeed,
+        myLastSpeed,
         thrust;
 
     if (mySpeed > maxSpeed)
@@ -508,8 +509,9 @@ while (true) {
     myLastVelocity = myLastVelocityClass.lastItem();
     opponentLastVelocity = opponentLastVelocityClass.lastItem();
 
-    checkpoint.angle = myPod.velocity().angleTo(myPod.seekDesiredVelocity());
-
+    //checkpoint.angle = myPod.velocity().angleTo(myPod.seekDesiredVelocity());
+    mySpeed = Math.round(myPod.velocity().magnitude());
+    myLastSpeed = Math.round(myLastVelocity.magnitude());
 
     if (myPod.shield) {
         myPod.decrementShieldTimer();
@@ -517,7 +519,7 @@ while (true) {
     }else
         myPod.activateShield(checkCollision(collisionThreshold, myPod, opponentPod));
 
-    thrust = myPod.shield ? 'SHIELD' : adjustThrust(mySpeed, checkpoint.distance, checkpoint.angle);
+    thrust = myPod.shield ? 'SHIELD' : adjustThrust(mySpeed, myLastSpeed, checkpoint.distance, checkpoint.angle);
 
     if (mySpeed > maxSpeed && thrust !== 'BOOST')
         maxSpeed = mySpeed;
@@ -548,7 +550,7 @@ while (true) {
     log.basic = `nextCP_dist: ${checkpoint.distance} nextCP_angle: ${checkpoint.angle} thrust: ${thrust} speed: ${mySpeed} collusion: ${myPod.shield}`;
     log.incompleteMap = `mapReady: ${mapReady} mapLength: ${checkpoints.length} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex} CPIndexLast ${lastCheckPointIndex}`;
     log.offset = `x: ${xOffset} y: ${yOffset}`;
-    log.speed = `speed: ${Math.round(myPod.velocity().magnitude())} lastSpeed: ${Math.round(myLastVelocity.magnitude())}`;
+    log.speed = `speed: ${mySpeed} lastSpeed: ${myLastSpeed}`;
     log.pos = `myPos -> x: ${myPos.x} y: ${myPos.y} nextPos -> x: ${Math.round(myPod.nextSeekPos().x)} y: ${Math.round(myPod.nextSeekPos().y)} `;
 
     console.error(log.offset);
