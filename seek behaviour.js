@@ -29,13 +29,13 @@ const
             a: -90, // min x
             b: 90, // max x
             mu: 0, // location parameter
-            sigma: 1000 // scale parameter
+            sigma: 25 // scale parameter
         },
         break: { // x: speed
             a: 0, // min x
             b: 600, // max x
             mu: 0, // location parameter
-            sigma: 250 // scale parameter
+            sigma: 100 // scale parameter
         },
         targetRadius: { // x: targetRadius
             a: -90, // min x
@@ -379,7 +379,7 @@ let maxSpeed = 0,
         let returnValue;
 
         //if (dist >= breakDist || (Math.abs(angle) > 3)) {
-        if (dist >= breakDist || flee) {
+        if (dist > breakDist || flee) {
             returnValue = gaussValue(angle, gauss.far) * gaussConst.far;
             console.error(`speed far: ${returnValue} angle: ${angle}`);
         } else {
@@ -403,13 +403,13 @@ let maxSpeed = 0,
                 return setThrust(flee, mySpeed, myLastSpeed, dist, angle);
         }
     },
-    calculateGoal = (myPos, targetPos) => {
+    calculateGoal = (angle, myPos, targetPos) => {
 
         let //m = targetPos.x - myPos.x === 0 ? 1000 : (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
             m = (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
             b = targetPos.y - m * targetPos.x,
-            //targetR = gaussValue(angle, gauss.targetRadius) * gaussConst.targetRadius,
-            targetR = targetRadius,
+            targetR = gaussValue(angle, gauss.targetRadius) * gaussConst.targetRadius,
+            //targetR = targetRadius,
             // Calculate the two interference points
             x1 = (targetPos.x + targetR / Math.sqrt(1 + m * m)),
             x2 = (targetPos.x - targetR / Math.sqrt(1 + m * m)),
@@ -503,7 +503,7 @@ while (true) {
         checkpointIndex = findCoords(checkpoint);
         nextCheckPointIndex = checkpointIndex + 1 === checkpoints.length ? 0 : checkpointIndex + 1;
         lastCheckPointIndex = checkpointIndex - 1 < 0 ? 0 : checkpointIndex - 1;
-        targetPoint = calculateGoal(checkpoints[nextCheckPointIndex], checkpoint.pos);
+        targetPoint = calculateGoal(checkpoint.angle, checkpoints[nextCheckPointIndex], checkpoint.pos);
         myPod.setPod(myPos, myLastPos, targetPoint);
         console.error(`velocity: x: ${myPod.velocity().x} y: ${myPod.velocity().y} magnitude: ${Math.round(myPod.velocity().magnitude())}`);
         console.error(`seekDesiredVelocity: x: ${myPod.seekDesiredVelocity().x} y: ${myPod.seekDesiredVelocity().y} magnitude: ${Math.round(myPod.seekDesiredVelocity().magnitude())}`);
@@ -513,7 +513,7 @@ while (true) {
         opponentPod.setPod(opponentPos, opponentLastPos, checkpoint.pos);
     } else {
         checkpointIndex = fillMap(checkpoint);
-        targetPoint = calculateGoal(myPos, checkpoint.pos);
+        targetPoint = calculateGoal(checkpoint.angle, myPos, checkpoint.pos);
         myPod.setPod(myPos, myLastPos, targetPoint);
         console.error(`velocity: x: ${myPod.velocity().x} y: ${myPod.velocity().y} magnitude: ${Math.round(myPod.velocity().magnitude())}`);
         console.error(`seekDesiredVelocity: x: ${myPod.seekDesiredVelocity().x} y: ${myPod.seekDesiredVelocity().y} magnitude: ${Math.round(myPod.seekDesiredVelocity().magnitude())}`);
