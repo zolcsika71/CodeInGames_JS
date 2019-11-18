@@ -232,7 +232,7 @@ class Point {
         return new Point(cx, cy);
     }
 }
-class Checkpoint extends Point{
+class Checkpoint extends Point {
     constructor(x, y, angle, dist) {
         super(x, y);
         this.pos = {
@@ -242,6 +242,56 @@ class Checkpoint extends Point{
         this.radius = 600;
         this.angle = angle;
         this.distance = dist;
+    }
+    setAngleToMyHeading (angle) {
+        this.angle = angle;
+    }
+    setDistanceToMyPos (distance) {
+        this.distance = distance;
+    }
+    setDistanceFromPrevCheckPoint (distance) {
+        this.distanceFromPrevCheckPoint = distance;
+    }
+}
+class Map {
+    constructor() {
+        this.mapArray = [];
+        this.lap = 0;
+    }
+    getLap () {
+        if (mapReady && this.findIndex(checkpoint) === 0) {
+            this.lap++;
+            return this.lap;
+        } else
+            return 0;
+    }
+    findIndex (checkpoint) {
+        return this.mapArray.findIndex(i => i.x === checkpoint.x && i.y === checkpoint.y);
+    }
+    addCheckpoint (checkpoint) {
+        let index = this.findIndex(checkpoint);
+
+        if (index === -1) {
+
+            let mapArrayLength = this.mapArray.length;
+
+            if (mapArrayLength === 0) {
+                checkpoint.setDistanceFromPrevCheckPoint(checkpoint.distance);
+                this.mapArray.push(checkpoint);
+                distArray.push(checkpoint.distance);
+            } else {
+                let lastIndex = mapArrayLength - 1 < 0 ? 0 : mapArrayLength - 1,
+                    dist = this.mapArray[lastIndex].dist(checkpoint);
+
+                checkpoint.setDistanceFromPrevCheckPoint(dist);
+                this.mapArray.push(checkpoint);
+                distArray.push(dist);
+            }
+
+        } else if (index !== this.mapArray.length - 1) {
+            mapReady = true;
+
+        }
     }
 }
 class Pod {
@@ -333,18 +383,19 @@ class Pod {
 
 }
 let maxSpeed = 0,
+    distArray = [],
     myLastPosClass = new LIFO(),
     opponentLastPosClass = new LIFO(),
     myLastVelocityClass = new LIFO(),
     opponentLastVelocityClass = new LIFO(),
     lastNextCPDistClass = new LIFO(),
     pid = new PID(p, i, d),
+    map = new Map(),
     myLastPos,
     opponentLastPos,
     myLastVelocity,
     opponentLastVelocity,
     lastNextCPDist,
-    checkpoints = [],
     mapReady = false,
     boostAvailable = true,
     log = {},
@@ -354,20 +405,8 @@ let maxSpeed = 0,
     targetPoint,
     myPod = new Pod(),
     opponentPod = new Pod(),
-    findCoords = checkpoint => checkpoints.findIndex(i => i.x === checkpoint.x && i.y === checkpoint.y),
-    fillMap = checkpoint => {
-        let index = findCoords(checkpoint);
-
-        if (index === -1)
-            checkpoints.push(checkpoint);
-        else if (index !== checkpoints.length - 1)
-            mapReady = true;
-
-        if (index === -1)
-            return checkpoints.length - 1;
-        else
-            return index;
-    },
+    findCoords = checkpoint => map.findIndex(checkpoint),
+    fillMap = checkpoint => map.addCheckpoint(checkpoint),
     gaussValue = (value, gauss) => pdf(value, gauss),
     gaussConst = {
         far: maxThrust / gaussValue(0, gauss.far),
@@ -396,7 +435,10 @@ let maxSpeed = 0,
             console.error(`speed angle: 0`);
             return 0;
         } else {
-            if (dist > boostDist && boostAvailable && angle === 0 && mapReady) {
+
+            console.error(Math.max(distArray));
+
+            if (boostAvailable && angle === 0 && mapReady && dist >= Math.max(distArray) * 0.9) {
                 boostAvailable = false;
                 return 'BOOST';
             } else
@@ -481,6 +523,9 @@ while (true) {
         },
         checkpoint = new Checkpoint(nextCheckpoint.pos.x, nextCheckpoint.pos.y, nextCheckpoint.angle, nextCheckpoint.dist);
 
+    map.addCheckpoint(checkpoint);
+
+
 
     myLastPosClass.addItem(myPos);
     opponentLastPosClass.addItem(opponentPos);
@@ -501,9 +546,9 @@ while (true) {
 
     if (mapReady) {
         checkpointIndex = findCoords(checkpoint);
-        nextCheckPointIndex = checkpointIndex + 1 === checkpoints.length ? 0 : checkpointIndex + 1;
-        lastCheckPointIndex = checkpointIndex - 1 < 0 ? 0 : checkpointIndex - 1;
-        targetPoint = calculateGoal(checkpoint.angle, checkpoints[nextCheckPointIndex], checkpoint.pos);
+        nextCheckPointIndex = checkpointIndex + 1 === map.mapArray.length ? 0 : checkpointIndex + 1;
+        lastCheckPointIndex = checkpointIndex - 1 < 0 ? map.mapArray.length : checkpointIndex - 1;
+        targetPoint = calculateGoal(checkpoint.angle, map.mapArray[nextCheckPointIndex], checkpoint.pos);
         myPod.setPod(myPos, myLastPos, targetPoint);
         console.error(`velocity: x: ${myPod.velocity().x} y: ${myPod.velocity().y} magnitude: ${Math.round(myPod.velocity().magnitude())}`);
         console.error(`seekDesiredVelocity: x: ${myPod.seekDesiredVelocity().x} y: ${myPod.seekDesiredVelocity().y} magnitude: ${Math.round(myPod.seekDesiredVelocity().magnitude())}`);
@@ -571,14 +616,14 @@ while (true) {
     yOffset = Math.round(myPod.calculatedSeekVelocity().y);
 
     log.basic = `nextCP_dist: ${checkpoint.distance} nextCP_angle: ${checkpoint.angle} thrust: ${thrust} speed: ${mySpeed} collusion: ${myPod.shield}`;
-    log.incompleteMap = `mapReady: ${mapReady} mapLength: ${checkpoints.length} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex} CPIndexLast ${lastCheckPointIndex}`;
+    log.incompleteMap = `mapReady: ${mapReady} mapLength: ${map.mapArray.length} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex} CPIndexLast ${lastCheckPointIndex}`;
     log.offset = `x: ${xOffset} y: ${yOffset}`;
     log.speed = `speed: ${mySpeed} lastSpeed: ${myLastSpeed}`;
     log.pos = `myPos -> x: ${myPos.x} y: ${myPos.y} nextPos -> x: ${Math.round(myPod.nextSeekPos().x)} y: ${Math.round(myPod.nextSeekPos().y)} `;
 
     console.error(log.offset);
     console.error(log.basic);
-    //console.error(log.incompleteMap);
+    console.error(log.incompleteMap);
     console.error(log.speed);
     console.error(log.pos);
     console.error(maxSpeed);
