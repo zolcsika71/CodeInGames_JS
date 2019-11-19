@@ -18,7 +18,7 @@ const
     targetRadius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
     maxVelocity = 10,
     maxThrust = 100,
-    breakDist = 1300,
+    breakDist = 1200,
     //disabledAngle = 45 + 18,
     disabledAngle = 90 - 18,
     p = 0.03,
@@ -29,7 +29,7 @@ const
             a: -90, // min x
             b: 90, // max x
             mu: 0, // location parameter
-            sigma: 25 // scale parameter
+            sigma: 35 // scale parameter
         },
         break: { // x: speed
             a: 0, // min x
@@ -293,15 +293,15 @@ class Map {
 
                 let maxDist = Math.max.apply(Math, this.checkpoints.map(object => object.distanceFromPrevCheckPoint));
 
-                console.error(`maxDist: ${maxDist}`);
+                console.error(`maxDist: ${maxDist} CPLength: ${checkpointsLength} CPDistFromPrev: ${checkpoint.distanceFromPrevCheckPoint} `);
 
                 if (maxDist < checkpoint.distanceFromPrevCheckPoint) {
                     checkpoint.farest = true;
-                    for (let i = 0; i === lastCheckpointIndex; i++)
+                    for (let i = 0; i < checkpointsLength; i++)
                         this.checkpoints[i].farest = false;
                 }
 
-
+                console.error(`farest: ${checkpoint.farest}`);
                 this.checkpoints.push(checkpoint);
             }
 
@@ -447,7 +447,7 @@ let maxSpeed = 0,
         // If angle is too wide
         if (Math.abs(angle) >= disabledAngle) {
             console.error(`speed angle: 0`);
-            return 0;
+            return 5;
         } else {
             if (boostTarget && boostAvailable && angle === 0 && map.mapReady) {
                 boostAvailable = false;
@@ -621,8 +621,8 @@ while (true) {
             magnitude = myPod.calculatedFleeVelocity().magnitude();
         }
     */
-    xOffset = Math.round(myPod.calculatedSeekVelocity().x);
-    yOffset = Math.round(myPod.calculatedSeekVelocity().y);
+    xOffset = Math.round(myPod.seekSteeringForce().x);
+    yOffset = Math.round(myPod.seekSteeringForce().y);
 
     log.basic = `nextCP_dist: ${checkpoint.distance} nextCP_angle: ${checkpoint.angle} thrust: ${thrust} speed: ${mySpeed} collusion: ${myPod.shield} farest: ${boostTarget} distToNext: ${map.checkpoints[checkpointIndex].distanceFromPrevCheckPoint}`;
     log.incompleteMap = `mapReady: ${map.mapReady} mapLength: ${map.checkpoints.length} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex} CPIndexLast ${lastCheckPointIndex} lap: ${map.getLap(map.checkpoints[checkpointIndex])}`;

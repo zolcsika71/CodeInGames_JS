@@ -7,9 +7,9 @@ const
     targetRadius = 350, // Distance starting from the middle of the checkpoint for the racer to aim for
     maxVelocity = 10,
     maxThrust = 100,
-    breakDist = 1300,
+    breakDist = 1200,
     //disabledAngle = 45 + 18,
-    disabledAngle = 90 - 18,
+    disabledAngle = 90,
     p = 0.03,
     i = 0,
     d = 0.02,
@@ -414,16 +414,15 @@ let myLastPos = new LIFO(),
 
         m2 = m2 > 1 ? 1 : m2;
 
-        return maxThrust * m1 * m1;
+        return Math.round(maxThrust * m1 * m2);
 
     },
-    adjustThrust = (flee, dist, angle) => {
+    adjustThrust = (boostTarget, flee, dist, angle) => {
         // If angle is too wide
         if (Math.abs(angle) >= disabledAngle) {
             console.error(`speed angle: 0`);
             return 0;
         } else {
-
             if (boostTarget && boostAvailable && angle === 0 && map.mapReady) {
                 boostAvailable = false;
                 return 'BOOST';
@@ -431,11 +430,44 @@ let myLastPos = new LIFO(),
                 return setThrust(flee, dist, angle);
         }
     },
-    calculateGoal = (target, speed) => {
-        return new Point (target.x - (3 * speed), target.y - (3 * speed)
+
+    calculateGoalBreak = (target, speed) => {
+        return new Point (target.x - (3 * speed), target.y - (3 * speed));
 
     },
+    calculateGoal = (angle, myPos, targetPos) => {
 
+        let //m = targetPos.x - myPos.x === 0 ? 1000 : (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
+            m = (targetPos.y - myPos.y) / (targetPos.x - myPos.x),
+            b = targetPos.y - m * targetPos.x,
+            targetR = gaussValue(angle, gauss.targetRadius) * gaussConst.targetRadius,
+            //targetR = targetRadius,
+            // Calculate the two interference points
+            x1 = (targetPos.x + targetR / Math.sqrt(1 + m * m)),
+            x2 = (targetPos.x - targetR / Math.sqrt(1 + m * m)),
+            point1 = {
+                x: Math.round(x1),
+                y: Math.round(m * x1 + b)
+            },
+            point2 = {
+                x: Math.round(x2),
+                y: Math.round(m * x2 + b)
+            },
+            myPosition = new Point(myPos.x, myPos.y);
+
+        if (myPosition.distSquare(point1) < myPosition.distSquare(point2))
+            return new Checkpoint(point1.x, point1.y);
+
+        return new Checkpoint(point2.x, point2.y);
+    },
+    countSpeed = (position, target) => {
+
+        let myPosition = new Point(position.x, position.y),
+            speed = myPosition.dist(target);
+
+        return Math.round(speed);
+
+    },
     checkCollision = (threshold, myPod, opponentPod) => {
 
         let drag = 0.85,
@@ -485,13 +517,24 @@ while (true) {
     opponentLastPos.set(opponentPos);
     lastNextCPDist.set(checkpoint.distance);
 
-    let flee = checkpoint.distance > lastNextCPDist && checkpoint.distance < breakDist,
+    let flee = checkpoint.distance > lastNextCPDist.get() && checkpoint.distance < breakDist,
         xOffset,
         yOffset,
-        mySpeed,
+        mySpeed = countSpeed(myLastPos.get(), myPos),
         myLastSpeed,
-        thrust;
+        thrust,
+        boostTarget = map.mapReady ? map.checkpoints[map.findIndex(checkpoint)].farest : false;
 
+    if (map.mapReady)
+        console.error(map.findIndex(checkpoint));
 
+    targetPoint = checkpoint.distance <= breakDist ? calculateGoalBreak(checkpoint.pos, mySpeed) : calculateGoal(checkpoint.angle, myPos, checkpoint.pos);
+    thrust = adjustThrust(boostTarget, flee, checkpoint.distance, checkpoint.angle);
+
+    log.basic = `nextCP_dist: ${checkpoint.distance} nextCP_angle: ${checkpoint.angle} thrust: ${thrust} speed: ${mySpeed} farest: ${boostTarget}`;
+
+    console.error(log.basic);
+
+    console.log(`${targetPoint.x} ${targetPoint.y} ${thrust} ${thrust}`);
 
 }
