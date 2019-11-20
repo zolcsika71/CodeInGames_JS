@@ -26,7 +26,7 @@ class PID {
 }
 
 let pid = new PID(0.03, 0, 0.02),
-    processVariable = 1300;
+    processVariable = 1200;
 
 
 

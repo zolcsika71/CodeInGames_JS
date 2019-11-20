@@ -41,7 +41,7 @@ const
             a: -90, // min x
             b: 90, // max x
             mu: 0, // location parameter
-            sigma: 10 // scale parameter
+            sigma: 20 // scale parameter
         }
     };
 
@@ -57,6 +57,12 @@ function nextIndex(index, array) {
 function lastIndex(index, array) {
     return index - 1 < 0 ? array.length : index - 1;
 
+}
+function toDegrees (radians) {
+    return radians * (180 / Math.PI);
+}
+function toRadians(degrees) {
+    return degrees * (Math.PI / 180);
 }
 function erf(x) {
     const ERF_A = 0.147;
@@ -200,6 +206,12 @@ class Vector {
 
         return Math.round(toDegrees(angleRadian));
     }
+    rotate(angle) {
+        let radian = toRadians(angle),
+            sinAngle = Math.sin(radian),
+            cosAngle = Math.cos(radian);
+        return new Vector(this.x * cosAngle - this.y * sinAngle, this.y * cosAngle + this.x * sinAngle);
+    }
 }
 class Point {
     constructor(x, y) {
@@ -298,10 +310,9 @@ class Map {
                 if (maxDist < checkpoint.distanceFromPrevCheckPoint) {
                     checkpoint.farest = true;
                     for (let i = 0; i < checkpointsLength; i++)
-                        this.checkpoints[i].farest = false;
+                        if (this.checkpoints[i].farest)
+                            this.checkpoints[i].farest = false;
                 }
-
-                console.error(`farest: ${checkpoint.farest}`);
                 this.checkpoints.push(checkpoint);
             }
 
@@ -334,7 +345,7 @@ class Pod {
         return this.targetPos().subtract(this.pos());
     }
     seekSteeringForce () {
-        return this.shield ? this.seekDesiredVelocity().subtract(this.velocity()).divide(10) : this.seekDesiredVelocity().subtract(this.velocity());
+        return this.shield ? this.seekDesiredVelocity().subtract(this.velocity()).divide(10).truncate(10) : this.seekDesiredVelocity().subtract(this.velocity()).truncate(10);
     }
     calculatedSeekVelocity () {
         //return this.velocity().add(this.seekSteeringForce()).normalisedVector().multiply(maxVelocity);
@@ -449,7 +460,7 @@ let maxSpeed = 0,
             console.error(`speed angle: 0`);
             return 5;
         } else {
-            if (boostTarget && boostAvailable && angle === 0 && map.mapReady) {
+            if (boostTarget && boostAvailable && angle <= 3 && map.mapReady) {
                 boostAvailable = false;
                 return 'BOOST';
             } else
@@ -477,9 +488,21 @@ let maxSpeed = 0,
             myPosition = new Point(myPos.x, myPos.y);
 
         if (myPosition.distSquare(point1) < myPosition.distSquare(point2))
-            return new Checkpoint(point1.x, point1.y);
+            return new Point(point1.x, point1.y);
 
-        return new Checkpoint(point2.x, point2.y);
+        return new Point(point2.x, point2.y);
+    },
+    calculateGoalInDirection = (checkpoint, myPod) => {
+
+        if (Math.abs(checkpoint.angle) <= 1) {
+            let desiredDirection = myPod.seekDesiredVelocity().normalisedVector(),
+                currentDirection = desiredDirection.rotate(checkpoint.angle * -1).normalisedVector(),
+                steeringDirection = desiredDirection.subtract(currentDirection).normalisedVector().multiply(maxThrust);
+
+            return new Point(checkpoint.x + steeringDirection.x, checkpoint.y + steeringDirection.y)
+
+        } else
+            return checkpoint;
     },
     countSpeed = (position, target) => {
 
@@ -553,9 +576,13 @@ while (true) {
 
     if (map.mapReady) {
         checkpointIndex = map.findIndex(checkpoint);
-        nextCheckPointIndex = checkpointIndex + 1 === map.checkpoints.length ? 0 : checkpointIndex + 1;
-        lastCheckPointIndex = checkpointIndex - 1 < 0 ? map.checkpoints.length : checkpointIndex - 1;
+        nextCheckPointIndex = nextIndex(checkpointIndex, map.checkpoints);
+        lastCheckPointIndex = lastIndex(checkpointIndex, map.checkpoints);
+        //nextCheckPointIndex = checkpointIndex + 1 === map.checkpoints.length ? 0 : checkpointIndex + 1;
+        //lastCheckPointIndex = checkpointIndex - 1 < 0 ? map.checkpoints.length : checkpointIndex - 1;
         targetPoint = calculateGoal(checkpoint.angle, map.checkpoints[nextCheckPointIndex], checkpoint.pos);
+        myPod.setPod(myPos, myLastPos, targetPoint);
+        targetPoint = calculateGoalInDirection(checkpoint, myPod);
         myPod.setPod(myPos, myLastPos, targetPoint);
         console.error(`velocity: x: ${myPod.velocity().x} y: ${myPod.velocity().y} magnitude: ${Math.round(myPod.velocity().magnitude())}`);
         console.error(`seekDesiredVelocity: x: ${myPod.seekDesiredVelocity().x} y: ${myPod.seekDesiredVelocity().y} magnitude: ${Math.round(myPod.seekDesiredVelocity().magnitude())}`);
@@ -566,6 +593,8 @@ while (true) {
     } else {
         checkpointIndex =  map.findIndex(checkpoint);
         targetPoint = calculateGoal(checkpoint.angle, myPos, checkpoint.pos);
+        myPod.setPod(myPos, myLastPos, targetPoint);
+        targetPoint = calculateGoalInDirection(checkpoint, myPod);
         myPod.setPod(myPos, myLastPos, targetPoint);
         console.error(`velocity: x: ${myPod.velocity().x} y: ${myPod.velocity().y} magnitude: ${Math.round(myPod.velocity().magnitude())}`);
         console.error(`seekDesiredVelocity: x: ${myPod.seekDesiredVelocity().x} y: ${myPod.seekDesiredVelocity().y} magnitude: ${Math.round(myPod.seekDesiredVelocity().magnitude())}`);
@@ -625,7 +654,7 @@ while (true) {
     yOffset = Math.round(myPod.seekSteeringForce().y);
 
     log.basic = `nextCP_dist: ${checkpoint.distance} nextCP_angle: ${checkpoint.angle} thrust: ${thrust} speed: ${mySpeed} collusion: ${myPod.shield} farest: ${boostTarget} distToNext: ${map.checkpoints[checkpointIndex].distanceFromPrevCheckPoint}`;
-    log.incompleteMap = `mapReady: ${map.mapReady} mapLength: ${map.checkpoints.length} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex} CPIndexLast ${lastCheckPointIndex} lap: ${map.getLap(map.checkpoints[checkpointIndex])}`;
+    log.incompleteMap = `mapReady: ${map.mapReady} mapLength: ${map.checkpoints.length} CPIndexLast ${lastCheckPointIndex} CPIndex: ${checkpointIndex} CPIndexNext: ${nextCheckPointIndex} lap: ${map.getLap(map.checkpoints[checkpointIndex])}`;
     log.offset = `x: ${xOffset} y: ${yOffset}`;
     log.speed = `speed: ${mySpeed} lastSpeed: ${myLastSpeed}`;
     log.pos = `myPos -> x: ${myPos.x} y: ${myPos.y} nextPos -> x: ${Math.round(myPod.nextSeekPos().x)} y: ${Math.round(myPod.nextSeekPos().y)} `;
