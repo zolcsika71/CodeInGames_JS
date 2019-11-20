@@ -460,7 +460,8 @@ let maxSpeed = 0,
             console.error(`speed angle: 0`);
             return 5;
         } else {
-            if (boostTarget && boostAvailable && angle <= 3 && map.mapReady) {
+            if (boostTarget && boostAvailable && Math.abs(angle) <= 3 && map.mapReady) {
+                //console.error(`angle: ${angle}`);
                 boostAvailable = false;
                 return 'BOOST';
             } else
@@ -497,7 +498,9 @@ let maxSpeed = 0,
         if (Math.abs(checkpoint.angle) <= 1) {
             let desiredDirection = myPod.seekDesiredVelocity().normalisedVector(),
                 currentDirection = desiredDirection.rotate(checkpoint.angle * -1).normalisedVector(),
-                steeringDirection = desiredDirection.subtract(currentDirection).normalisedVector().multiply(maxThrust);
+                steeringDirection = desiredDirection.subtract(currentDirection).multiply(maxThrust);
+
+            console.error(`currentDir: ${desiredDirection.subtract(currentDirection).x} ${desiredDirection.subtract(currentDirection).y}`);
 
             return new Point(checkpoint.x + steeringDirection.x, checkpoint.y + steeringDirection.y)
 
