@@ -35,7 +35,11 @@ while (true) {
     let xMove = '',
         yMove = '';
 
-    console.error(`light: ${a}, ${b} Thor: ${thor.x} ${thor.y}`);
+    //console.error(`light: ${a}, ${b} Thor: ${thor.x} ${thor.y}`);
+    console.error(remainingTurns);
+
+    if (b < thor.y)
+        console.error(`${b} ${thor.y}`);
 
 
     if (a < thor.x) {
