@@ -22,7 +22,7 @@ const
             c: 90
         }
     },
-    breakDist = 1600;
+    breakDist = 1200;
 
 let mapReady = false,
     currentGauss,
@@ -153,7 +153,7 @@ class Pod extends Point {
 
         // If angle is too wide
         if (Math.abs(this.angle) >= 90)
-            return 0;
+            return 5;
         else {
             let dist = nextCPDist;
 

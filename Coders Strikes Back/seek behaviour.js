@@ -356,9 +356,10 @@ class Pod {
         return this.seekSteeringForce().truncate(this.velocity().magnitude());
     }
     nextSeekPos () {
-        let velocity = this.velocity().add(this.acceleration()).multiply(0.85);
+        //let velocity = this.velocity().add(this.acceleration()).multiply(0.85);
         //console.error(`velocity -> x: ${velocity.x} y: ${velocity.y}`);
-        return this.pos().add(velocity);
+        //return this.pos().add(velocity);
+
 
     }
     fleeDesiredVelocity () {
@@ -371,7 +372,7 @@ class Pod {
 
         //console.error(`FLEE steeringForce: ${this.fleeSteeringForce().x} ${this.fleeSteeringForce().y}`);
 
-        let velocity = this.velocity().add(this.fleeSteeringForce()).truncate(maxVelocity);
+        let velocity = this.velocity().add(this.fleeSteeringForce()).truncate(this.velocity().magnitude());
         //console.error(`FLEE velocity: ${velocity.x} ${velocity.y} magnitude: ${velocity.magnitude()}`);
 
         //if (velocityMagnitude > maxVelocity)
