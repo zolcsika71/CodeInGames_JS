@@ -58,7 +58,7 @@ function lastIndex(index, array) {
     return index - 1 < 0 ? array.length : index - 1;
 
 }
-function toDegrees (radians) {
+function toDegrees(radians) {
     return radians * (180 / Math.PI);
 }
 function toRadians(degrees) {
