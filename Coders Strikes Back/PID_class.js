@@ -26,12 +26,12 @@ class PID {
 }
 
 let pid = new PID(0.03, 0, 0.02),
-    processVariable = 1200;
+    processVariable = 1800;
 
 
 
 for (let dist = processVariable; dist > 0; dist -= 100) {
-    let output = pid.compute(dist) * -1;
+    let output = pid.compute(627) * -1;
     console.log(`in: ${dist} out: ${output}`);
 }
 

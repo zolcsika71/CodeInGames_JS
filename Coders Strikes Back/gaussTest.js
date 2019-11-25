@@ -57,8 +57,9 @@ function pdf(x, gauss) {
     return A * Math.exp(B * Math.pow(x - gauss.mu, 2)) / C;
 }
 
-let type = 'far',
+let type = 'flee',
     disabledAngle = 90,
+    dist = 1800,
     gauss = {
     far: { // x: angle
         a: -90, // min x
@@ -72,6 +73,12 @@ let type = 'far',
         mu: 0, // location parameter
         sigma: 100 // scale parameter
     },
+    flee: { // x: speed
+        a: 0, // min x
+        b: dist, // max x
+        mu: 0, // location parameter
+        sigma: 700 // scale parameter
+    },
     targetRadius: { // x: targetRadius
         a: -90, // min x
         b: 90, // max x
@@ -82,7 +89,8 @@ let type = 'far',
     gaussConst = {
         far: 100 / pdf(0, gauss.far),
         break: 100 / pdf(gauss.break.a, gauss.break),
-        targetRadius: 350 / pdf(0, gauss.targetRadius)
+        targetRadius: 350 / pdf(0, gauss.targetRadius),
+        flee: 100 / pdf(0, gauss.flee)
     };
 
 switch (type) {
@@ -100,6 +108,11 @@ switch (type) {
     case "break":
         for (let x = 0; x <= 600; x += 50) {
             console.log(x, pdf(x, gauss.break) * gaussConst.break)
+        }
+        break;
+    case "flee":
+        for (let x = 0; x <= dist; x += 100) {
+            console.log(x, 100 - pdf(x, gauss.flee) * gaussConst.flee)
         }
         break;
 }
