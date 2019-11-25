@@ -168,7 +168,8 @@ class Pod extends Unit {
         this.timeout = 100;
     }
     bounce (unit) {
-
+        // This is one of the rare places where a Vector class would have made the code more readable.
+        // But this place is called so often that I can't pay a performance price to make it more readable.
         function applyImpactVector(fx, fy, myMass, unitMass) {
             this.vx -= fx / myMass;
             this.vy -= fy / myMass;
@@ -176,33 +177,35 @@ class Pod extends Unit {
             unit.vy += fy / unitMass;
 
         }
+        if (unit instanceof Checkpoint)
+            this.bounceWithCheckpoint();
+        else {
+            // If a pod has its shield active its mass is 10 otherwise it's 1
+            let myMass = this.shield ? 10 : 1,
+                unitMass = unit.shield ? 10 : 1,
+                massCoefficient = (myMass + unitMass) / (myMass * unitMass),
+                nx = this.x - unit.x,
+                ny = this.y - unit.y,
+                nxNySquare = Math.pow(nx, 2) + Math.pow(ny, 2),
+                dvx = this.vx - unit.vx,
+                dvy = this.vy - unit.vy,
+                impactVector = nx * dvx + ny * dvy, // fx and fy are the components of the impact vector. impactVector is just there for optimisation purposes
+                fx = (nx * impactVector) / (nxNySquare * massCoefficient),
+                fy = (ny * impactVector) / (nxNySquare * massCoefficient),
+                impulse = Math.sqrt(Math.pow(fx, 2) + Math.pow(fy, 2));
 
-        // If a pod has its shield active its mass is 10 otherwise it's 1
-        let myMass = this.shield ? 10 : 1,
-            unitMass = unit.shield ? 10 : 1,
-            massCoefficient = (myMass + unitMass) / (myMass * unitMass),
-            nx = this.x - unit.x,
-            ny = this.y - unit.y,
-            nxNySquare = Math.pow(nx, 2) + Math.pow(ny, 2),
-            dvx = this.vx - unit.vx,
-            dvy = this.vy - unit.vy,
-            impactVector = nx * dvx + ny * dvy, // fx and fy are the components of the impact vector. impactVector is just there for optimisation purposes
-            fx = (nx * impactVector) / (nxNySquare * massCoefficient),
-            fy = (ny * impactVector) / (nxNySquare * massCoefficient),
-            impulse = Math.sqrt(Math.pow(fx, 2) + Math.pow(fy, 2));
+            // We apply the impact vector once
+            applyImpactVector(fx, fy, myMass, unitMass);
 
-        // We apply the impact vector once
-        applyImpactVector(fx, fy, myMass, unitMass);
+            // If the norm of the impact vector is less than 120, we normalize it to 120
+            if (impulse < 120) {
+                fx = fx * 120.0 / impulse;
+                fy = fy * 120.0 / impulse;
+            }
 
-        // If the norm of the impact vector is less than 120, we normalize it to 120
-        if (impulse < 120) {
-            fx = fx * 120.0 / impulse;
-            fy = fy * 120.0 / impulse;
+            // We apply the impact vector a second time
+            applyImpactVector(fx, fy, myMass, unitMass);
         }
-
-        // We apply the impact vector a second time
-        applyImpactVector(fx, fy, myMass, unitMass);
-
     }
     play (pods, checkpoints) {
         let collisionWithCheckPoint = false,
@@ -215,7 +218,7 @@ class Pod extends Unit {
 
         while (time < 1) {
 
-            let firstCollision = null,
+            let firstCollision = {},
                 collision;
 
             this.checked++;
@@ -241,7 +244,7 @@ class Pod extends Unit {
                 }
             }
 
-            if (firstCollision === null || collisionWithCheckPoint) {
+            if (Object.keys(firstCollision).length === 0 || collisionWithCheckPoint) {
                 // No collision, we can move the pods until the end of the turn
                 for (let i = 0; i < pods.length; i++)
                     pods[i].move(1 - time);
@@ -272,25 +275,31 @@ class Pod extends Unit {
         let dist = this.dist(point),
             dx = (point.x - this.x) / dist,
             dy = (point.y - this.y) / dist,
+            // Simple trigonometry. We multiply by 180.0 / PI to convert radiants to degrees.
             angle = Math.acos(dx) * 180 / Math.PI;
 
+        // If the point I want is below me, I have to shift the angle for it to be correct
         if (dy < 0)
             angle = 360 - angle;
         return angle;
     }
     diffAngle (point) {
         let angle = this.getAngle(point),
+            // To know whether we should turn clockwise or not we look at the two ways and keep the smallest
+            // The ternary operators replace the use of a modulo operator which would be slower
             right = this.angle <= angle ? angle - this.angle : 360 - this.angle + angle,
             left = this.angle >= angle ? this.angle - angle : this.angle + 360 - angle;
 
         if (right < left)
             return right;
         else
+            // We return a negative angle if we must rotate to left
             return -left;
 
     }
     rotate (point) {
         let diffAngle = this.diffAngle(point);
+        // Can't turn by more than 18° in one turn
         if (diffAngle > 18)
             diffAngle = 18;
         else if (diffAngle < -18)
@@ -315,6 +324,7 @@ class Pod extends Unit {
         } else if (this.shield && this.shieldTimer === 0)
             this.shield = false;
 
+        // Conversion of the angle to radiants
         let radiant = this.angle * Math.PI / 180;
 
         this.vx += Math.cos(radiant) * thrust;
