@@ -69,7 +69,6 @@ class Unit extends Point {
         this.radius = radius;
         this.vx = vx;
         this.vy = vy;
-        this.cache = {};
     }
     collisionTime (unit) {
 
@@ -101,7 +100,7 @@ class Unit extends Point {
         return t;
     }
     save () {
-        this.cache.x = this.x;
+        cache.x = this.x;
         this.cache.y = this.y;
         this.cache.vx = this.vx;
         this.cache.vy = this.vy;
@@ -127,24 +126,32 @@ class Checkpoint extends Unit {
 }
 class Pod extends Unit {
     constructor(id, x, y) {
+        let ncpid,
+            checked,
+            timeout,
+            shield,
+            boostAvailable,
+            cache = {},
+            angle = -1,
+            nextAngle = -1;
+
         super(x, y, id);
         this.id = id;
+        this.radius = 400;
         this.type = 'POD';
+        this.ncpid = 1;
+        this.timeout = 100;
+        this.boostAvailable = true;
+        this.checked = 0;
+        this.shield = 0;
         this.x = x;
         this.y = y;
-        this.radius = 400;
-        this.angle = -1;
-        this.next_angle = -1;
-        this.boostAvailable = true;
-        this.checkPointId = 1;
-        this.checked = 0;
-        this.timeout = 100;
         //this.podPartner = podPartner;
-        this.shield = 0;
-        this.cache = {};
+
+
     }
     bounceWithCheckpoint () {
-        this.checkPointId++;
+        this.ncpid++;
         this.timeout = 100;
     }
     bounce (unit) {
@@ -215,7 +222,7 @@ class Pod extends Unit {
                 // Collision with another checkpoint?
                 // It is unnecessary to check all checkpoints here. We only test the pod's next checkpoint.
                 // We could look for the collisions of the pod with all the checkpoints, but if such a collision happens it wouldn't impact the game in any way
-                collision = pods[i].collision(checkpoints[pods[i].checkPointId]);
+                collision = pods[i].collision(checkpoints[pods[i].ncpid]);
 
                 // If the collision happens earlier than the current one we keep it
                 if (collision !== null && collision.time + time < 1 && (firstCollision === null || collision.time < firstCollision.time)) {
@@ -251,19 +258,6 @@ class Pod extends Unit {
             pods[i].end();
 
     }
-    setAngle (angle) {
-        // Can't turn by more than 18° in one turn
-        if (angle > 18)
-            angle = 18;
-        else if (angle < -18)
-            angle = -18;
-        this.angle += angle;
-
-        if (this.angle >= 360)
-            this.angle = this.angle - 360;
-        else if (this.angle < 0)
-            this.angle += 360;
-    }
     getAngle (point) {
         let dist = this.dist(point),
             dx = (point.x - this.x) / dist,
@@ -291,8 +285,13 @@ class Pod extends Unit {
 
     }
     rotate (point) {
-        let diffAngle = this.diffAngle(point);
-        this.setAngle(diffAngle);
+        let a = this.diffAngle(point);
+        if (a > 18)
+            a = 18;
+        else if (a < -18)
+            a = -18;
+        angle += a;
+
     }
     activeShield () {
         this.shield = true;
@@ -331,15 +330,20 @@ class Pod extends Unit {
         this.play(pods, checkpoints)
     }
     score (checkpoints) {
-        return this.checked * 50000 - this.dist(checkpoints[this.checkPointId]);
+        return this.checked * 50000 - this.dist(checkpoints[this.ncpid]);
     }
     apply (thrust, angle) {
-       this.setAngle(angle);
+        // Can't turn by more than 18° in one turn
+        if (angle > 18)
+            angle = 18;
+        else if (angle < -18)
+            angle = -18;
+        this.angle += angle;
 
-       if (thrust === -1)
-           this.shield = 4;
-       else
-           this.boost(thrust);
+        if (thrust === -1)
+            this.shield = 4;
+        else
+            this.boost(thrust);
     }
 }
 
