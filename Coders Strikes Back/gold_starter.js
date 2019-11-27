@@ -8,7 +8,7 @@ const
     MAX_THRUST = 100,
     E = 0.00001;
 
-let turns = -1,
+let r = -1,
     turn = 0,
     sols_ct = 0,
     is_p2 = false,
@@ -16,12 +16,18 @@ let turns = -1,
     cp_ct = parseInt(readline()),
     pods = [],
     cps = [],
+    cache = {},
     podPartner = {
         0: 1,
         1: 0,
         2: 3,
         3: 2
-    }, x, y, vx, vy, angle, ncpId;
+    },
+    checked = 0,
+    timeout = 100,
+    shield = 0,
+    boostAvailable = true,
+    x, y, vx, vy, angle, ncpId;
 
 function rnd(x, y) {
     return Math.floor((Math.random() * Math.floor(y))) + x;
@@ -78,14 +84,14 @@ class Unit extends Point {
     }
     collisionTime (unit) {
 
-        if (this.vx === unit.vx && this.vy === unit.vy) // Optimisation. Objects with the same speed will never collide
+        if (vx === unit.vx && vy === unit.vy) // Optimisation. Objects with the same speed will never collide
             return -1;
 
         // We place ourselves in the reference frame of unit. unit is therefore stationary and is at (0,0)
-        let dx = this.x - unit.x,
-            dy = this.y - unit.y,
-            dvx = this.vx - unit.vx,
-            dvy = this.vy - unit.vy,
+        let dx = x - unit.x,
+            dy = y - unit.y,
+            dvx = vx - unit.vx,
+            dvy = vy - unit.vy,
             a = Math.pow(dvx, 2) + Math.pow(dvy, 2),
             sr2 = this.type === 'CP' ? 357604 : 640000;
 
@@ -106,27 +112,27 @@ class Unit extends Point {
         return t;
     }
     saveUnit () {
-        this.cache.x = this.x;
-        this.cache.y = this.y;
-        this.cache.vx = this.vx;
-        this.cache.vy = this.vy;
+        cache.x = x;
+        cache.y = y;
+        cache.vx = vx;
+        cache.vy = vy;
     }
     loadUnit () {
-        this.x = this.cache.x;
-        this.y = this.cache.y;
-        this.vx = this.cache.vx;
-        this.vy = this.cache.vy;
+        x = cache.x;
+        y = cache.y;
+        vx = cache.vx;
+        vy = cache.vy;
     }
 }
 class Checkpoint extends Unit {
     constructor(id, x, y) {
         super(x, y);
         this.id = id;
-        this.type = 'CP';
         this.x = x;
         this.y = y;
         this.vx = 0;
         this.vy = 0;
+        this.type = 'CP';
         this.radius = 600;
     }
 }
@@ -136,44 +142,50 @@ class Pod extends Unit {
         this.id = id;
         this.radius = 400;
         this.type = 'POD';
-        this.ncpId = 0;
+        this.ncpId = 1;
         this.timeout = 100;
         this.boostAvailable = true;
         this.checked = 0;
         this.shield = 0;
-        this.x = x;
-        this.y = y;
+        this.podPartner = pods[podPartner[this.id]];
+        /*
         this.angle = -1;
         this.nextAngle = -1;
         this.cache = {};
-        this.podPartner = pods[podPartner[this.id]];
-    }
-    bounceWithCheckpoint () {
-        this.ncpId++;
-        this.timeout = 100;
+
+        */
     }
     bounce (unit) {
+        if (unit.type === 'CP') {
+            checked++;
+            timeout = this.podPartner = 100;
+            ncpId = (ncpId + 1) % cp_ct;
+            return;
+        }
+        this.bounceWithPod(pods[unit.id]);
+    }
+    bounceWithPod (pod) {
         // This is one of the rare places where a Vector class would have made the code more readable.
         // But this place is called so often that I can't pay a performance price to make it more readable.
         function applyImpactVector(fx, fy, myMass, unitMass) {
             this.vx -= fx / myMass;
             this.vy -= fy / myMass;
-            unit.vx += fx / unitMass;
-            unit.vy += fy / unitMass;
+            pod.vx += fx / unitMass;
+            pod.vy += fy / unitMass;
 
         }
-        if (unit instanceof Checkpoint)
+        if (pod instanceof Checkpoint)
             this.bounceWithCheckpoint();
         else {
             // If a pod has its shield active its mass is 10 otherwise it's 1
             let myMass = this.shield ? 10 : 1,
-                unitMass = unit.shield ? 10 : 1,
+                unitMass = pod.shield ? 10 : 1,
                 massCoefficient = (myMass + unitMass) / (myMass * unitMass),
-                nx = this.x - unit.x,
-                ny = this.y - unit.y,
+                nx = this.x - pod.x,
+                ny = this.y - pod.y,
                 nxNySquare = Math.pow(nx, 2) + Math.pow(ny, 2),
-                dvx = this.vx - unit.vx,
-                dvy = this.vy - unit.vy,
+                dvx = this.vx - pod.vx,
+                dvy = this.vy - pod.vy,
                 impactVector = nx * dvx + ny * dvy, // fx and fy are the components of the impact vector. impactVector is just there for optimisation purposes
                 fx = (nx * impactVector) / (nxNySquare * massCoefficient),
                 fy = (ny * impactVector) / (nxNySquare * massCoefficient),
@@ -286,31 +298,6 @@ class Pod extends Unit {
         this.shield = true;
         this.shieldTimer = 3;
     }
-    boost (thrust) {
-
-        if (this.shield > 0)
-            return;
-
-        // Conversion of the angle to radiants
-        let radiant = this.angle * Math.PI / 180;
-
-        this.vx += Math.cos(radiant) * thrust;
-        this.vy += Math.sin(radiant) * thrust;
-    }
-    move (t) {
-        this.x += this.vx * t;
-        this.y += this.vy * t;
-    }
-    end () {
-        this.x = Math.round(this.x);
-        this.y = Math.round(this.y);
-        this.vx = Math.trunc(this.vx * 0.85);
-        this.vy = Math.trunc(this.vy * 0.85);
-
-        // Don't forget that the timeout goes down by 1 each turn. It is reset to 100 when you pass a checkpoint
-        this.timeout -= 1;
-
-    }
     run (pods, checkpoints, target, thrust) {
         for (let i = 0; i < pods.length; i++) {
             pods[i].rotate(new Point(target.x, target.y));
@@ -319,7 +306,7 @@ class Pod extends Unit {
         this.play(pods, checkpoints)
     }
     score (checkpoints) {
-        return this.checked * 50000 - this.dist(checkpoints[this.ncpId]);
+        return checked * 50000 - this.dist(checkpoints[this.ncpId]);
     }
     apply (thrust, angle) {
         // Can't turn by more than 18° in one turn
@@ -341,8 +328,43 @@ class Pod extends Unit {
         let a = this.diffAngle(point);
         a = Math.max(-18, Math.min(18, a));
 
-        angle +=
+        angle += a;
 
+        if (angle >= 360)
+            angle = angle - 360;
+        else if (angle < 0)
+            angle += 360;
+    }
+    boost (thrust) {
+
+        if (shield > 0)
+            return;
+
+        // Conversion of the angle to radiants
+        let radiant = angle * Math.PI / 180;
+
+        vx += Math.cos(radiant) * thrust;
+        vy += Math.sin(radiant) * thrust;
+    }
+    move (t) {
+        x += vx * t;
+        y += vy * t;
+    }
+    end () {
+        x = Math.round(this.x);
+        y = Math.round(this.y);
+        vx = Math.trunc(this.vx * 0.85);
+        vy = Math.trunc(this.vy * 0.85);
+
+        if (checked > cp_ct * laps) {
+            ncpId = 0;
+            checked = cp_ct * laps;
+        }
+
+        // Don't forget that the timeout goes down by 1 each turn. It is reset to 100 when you pass a checkpoint
+        timeout--;
+        if (shield > 0)
+            shield--;
     }
     update (x, y, vx, vy, angle, ncpId) {
         if (this.shield > 0)
@@ -366,19 +388,23 @@ class Pod extends Unit {
 
         this.angle = angle;
 
-        if (turns === 0)
+        if (r === 0)
             this.angle = 1 + this.diffAngle(cps[1]);
+
+        this.shield = shield;
+        this.boostAvailable = boostAvailable;
+
         this.savePod();
 
     }
     savePod () {
         this.saveUnit();
-        this.cache.npcId = this.ncpId;
-        this.cache.checked = this.checked;
-        this.cache.timeout = this.timeout;
-        this.cache.shield = this.shield;
-        this.cache.angle = this.angle;
-        this.cache.boostAvailable = this.boostAvailable;
+        cache.npcId = this.ncpId;
+        cache.checked = this.checked;
+        cache.timeout = this.timeout;
+        cache.shield = this.shield;
+        cache.angle = this.angle;
+        cache.boostAvailable = this.boostAvailable;
     }
     loadPod () {
         this.loadUnit();
@@ -400,13 +426,13 @@ for (let i = 0; i < cp_ct; i++) {
     cps[i] = new Checkpoint(i, cpX, cpY);
 }
 // create pod classes
-for (let i= 0; i < 4; i++)
+for (let i = 0; i < 4; i++)
     pods[i] = new Pod(i, 0, 0);
 
 
 while (true) {
 
-    turns++;
+    r++;
 
     for (let i = 0; i < 4; i++) {
 
@@ -419,7 +445,7 @@ while (true) {
             angle = parseInt(inputs[4]),
             ncpId = parseInt(inputs[5]);
 
-        if (turns === 0 && i > 1 && angle > -1)
+        if (r === 0 && i > 1 && angle > -1)
             is_p2 = true;
         pods[i].update(x, y, vx, vy, angle, ncpId);
 

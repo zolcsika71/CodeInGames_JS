@@ -7,7 +7,7 @@ let inputs = readline().split(' ');
 const
     W = parseInt(inputs[0]), // width of the building.
     H = parseInt(inputs[1]), // height of the building.
-    N = parseInt(readline()); // maximum number of turns before game over.
+    N = parseInt(readline()); // maximum number of r before game over.
 
 inputs = readline().split(' ');
 const

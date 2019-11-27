@@ -27,7 +27,7 @@ let thor = new Direction(initialTx, initialTy);
 
 // game loop
 while (true) {
-    let remainingTurns = parseInt(readline()); // The remaining amount of turns Thor can move. Do not remove this line.
+    let remainingTurns = parseInt(readline()); // The remaining amount of r Thor can move. Do not remove this line.
 
     let xMove = '',
         yMove = '';
