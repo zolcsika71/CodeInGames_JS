@@ -8,14 +8,20 @@ const
     MAX_THRUST = 100,
     E = 0.00001;
 
-let r = -1,
+let turns = -1,
     turn = 0,
     sols_ct = 0,
     is_p2 = false,
-    cp_ct,
-    laps,
+    laps = parseInt(readline()),
+    cp_ct = parseInt(readline()),
     pods = [],
-    cps = [];
+    cps = [],
+    podPartner = {
+        0: 1,
+        1: 0,
+        2: 3,
+        3: 2
+    }, x, y, vx, vy, angle, ncpId;
 
 function rnd(x, y) {
     return Math.floor((Math.random() * Math.floor(y))) + x;
@@ -99,13 +105,13 @@ class Unit extends Point {
 
         return t;
     }
-    save () {
-        cache.x = this.x;
+    saveUnit () {
+        this.cache.x = this.x;
         this.cache.y = this.y;
         this.cache.vx = this.vx;
         this.cache.vy = this.vy;
     }
-    load () {
+    loadUnit () {
         this.x = this.cache.x;
         this.y = this.cache.y;
         this.vx = this.cache.vx;
@@ -126,32 +132,24 @@ class Checkpoint extends Unit {
 }
 class Pod extends Unit {
     constructor(id, x, y) {
-        let ncpid,
-            checked,
-            timeout,
-            shield,
-            boostAvailable,
-            cache = {},
-            angle = -1,
-            nextAngle = -1;
-
-        super(x, y, id);
+        super(id, x, y);
         this.id = id;
         this.radius = 400;
         this.type = 'POD';
-        this.ncpid = 1;
+        this.ncpId = 0;
         this.timeout = 100;
         this.boostAvailable = true;
         this.checked = 0;
         this.shield = 0;
         this.x = x;
         this.y = y;
-        //this.podPartner = podPartner;
-
-
+        this.angle = -1;
+        this.nextAngle = -1;
+        this.cache = {};
+        this.podPartner = pods[podPartner[this.id]];
     }
     bounceWithCheckpoint () {
-        this.ncpid++;
+        this.ncpId++;
         this.timeout = 100;
     }
     bounce (unit) {
@@ -222,7 +220,7 @@ class Pod extends Unit {
                 // Collision with another checkpoint?
                 // It is unnecessary to check all checkpoints here. We only test the pod's next checkpoint.
                 // We could look for the collisions of the pod with all the checkpoints, but if such a collision happens it wouldn't impact the game in any way
-                collision = pods[i].collision(checkpoints[pods[i].ncpid]);
+                collision = pods[i].collision(checkpoints[pods[i].ncpId]);
 
                 // If the collision happens earlier than the current one we keep it
                 if (collision !== null && collision.time + time < 1 && (firstCollision === null || collision.time < firstCollision.time)) {
@@ -284,15 +282,6 @@ class Pod extends Unit {
             return -left;
 
     }
-    rotate (point) {
-        let a = this.diffAngle(point);
-        if (a > 18)
-            a = 18;
-        else if (a < -18)
-            a = -18;
-        angle += a;
-
-    }
     activeShield () {
         this.shield = true;
         this.shieldTimer = 3;
@@ -330,21 +319,114 @@ class Pod extends Unit {
         this.play(pods, checkpoints)
     }
     score (checkpoints) {
-        return this.checked * 50000 - this.dist(checkpoints[this.ncpid]);
+        return this.checked * 50000 - this.dist(checkpoints[this.ncpId]);
     }
     apply (thrust, angle) {
         // Can't turn by more than 18° in one turn
-        if (angle > 18)
-            angle = 18;
-        else if (angle < -18)
-            angle = -18;
+        angle = Math.max(-18, Math.min(18, angle));
+
         this.angle += angle;
+
+        if (this.angle >= 360)
+            this.angle = this.angle - 360;
+        else if (this.angle < 0)
+            this.angle += 360;
 
         if (thrust === -1)
             this.shield = 4;
         else
             this.boost(thrust);
     }
+    rotate (point) {
+        let a = this.diffAngle(point);
+        a = Math.max(-18, Math.min(18, a));
+
+        angle +=
+
+    }
+    update (x, y, vx, vy, angle, ncpId) {
+        if (this.shield > 0)
+            this.shield--;
+
+        if (ncpId !== this.ncpId) {
+            this.timeout = 100;
+            this.podPartner.timeout = 100;
+            this.checked++;
+        } else
+            this.timeout--;
+
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.ncpId = ncpId;
+
+        if (is_p2 && this.id > 1)
+            [angle, this.nextAngle] = [this.nextAngle, angle]; // swap the variables
+
+        this.angle = angle;
+
+        if (turns === 0)
+            this.angle = 1 + this.diffAngle(cps[1]);
+        this.savePod();
+
+    }
+    savePod () {
+        this.saveUnit();
+        this.cache.npcId = this.ncpId;
+        this.cache.checked = this.checked;
+        this.cache.timeout = this.timeout;
+        this.cache.shield = this.shield;
+        this.cache.angle = this.angle;
+        this.cache.boostAvailable = this.boostAvailable;
+    }
+    loadPod () {
+        this.loadUnit();
+        this.ncpId = this.cache.npcId;
+        this.checked = this.cache.checked;
+        this.timeout = this.cache.timeout;
+        this.shield = this.cache.shield;
+        this.angle = this.cache.angle;
+        this.boostAvailable = this.cache.boostAvailable;
+    }
+
+}
+
+// create CheckPoint classes
+for (let i = 0; i < cp_ct; i++) {
+    let inputs = readline().split(' '),
+        cpX = parseInt(inputs[0]),
+        cpY = parseInt(inputs[1]);
+    cps[i] = new Checkpoint(i, cpX, cpY);
+}
+// create pod classes
+for (let i= 0; i < 4; i++)
+    pods[i] = new Pod(i, 0, 0);
+
+
+while (true) {
+
+    turns++;
+
+    for (let i = 0; i < 4; i++) {
+
+        let inputs = readline().split(' ');
+
+            x = parseInt(inputs[0]),
+            y = parseInt(inputs[1]),
+            vx = parseInt(inputs[2]),
+            vy = parseInt(inputs[3]),
+            angle = parseInt(inputs[4]),
+            ncpId = parseInt(inputs[5]);
+
+        if (turns === 0 && i > 1 && angle > -1)
+            is_p2 = true;
+        pods[i].update(x, y, vx, vy, angle, ncpId);
+
+    }
+
+
+
 }
 
 
