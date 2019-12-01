@@ -6,7 +6,7 @@ const
     MAX_THRUST = 100,
     DISABLED_ANGLE = 90,
     THRUST_BOOST = 'BOOST',
-    THRUST_SHIELD = 0,
+    THRUST_SHIELD = 'SHIELD',
     E = 0.00001;
 
 let r = -1,
@@ -32,7 +32,7 @@ function roundAngle(angle) {
     return Math.max(-18, Math.min(18, angle));
 }
 function printMove(thrust, angle, pod) {
-    let a = pod.angle + angle;
+    let a = pod.angle + roundAngle(angle);
     if (a >= 360)
         a = a - 360;
     else if (a < 0)
@@ -58,7 +58,7 @@ function play() {
 
         let firstCollision = new Collision(null, null, -1);
         for (let i = 0; i < 4; i++) {
-            for(let j = i + 1; j < 4; j++) {
+            for (let j = i + 1; j < 4; j++) {
                 let collisionTime = pods[i].collisionTime(pods[j]);
                 if (collisionTime > -1 && collisionTime + t < 1 && (firstCollision.time === -1 || collisionTime < firstCollision.time)) {
                     firstCollision.a = pods[i];
@@ -67,19 +67,18 @@ function play() {
                 }
             }
         }
-        if (firstCollision.t === -1) {
-            for (let i = 0; i < 4; i++) {
+        if (firstCollision.time === -1) {
+            for (let i = 0; i < 4; i++)
                 pods[i].move(1.0 - t);
-            }
+
             t = 1;
         } else {
 
-            for (let i = 0; i < 4; i++) {
-                pods[i].move(firstCollision.t);
-            }
+            for (let i = 0; i < 4; i++)
+                pods[i].move(firstCollision.time);
 
             firstCollision.a.bounce(firstCollision.b);
-            t += firstCollision.t;
+            t += firstCollision.time;
         }
         for (let i = 0; i < 4; i++)
             pods[i].end();
@@ -508,21 +507,32 @@ class ReflexBot extends Bot {
         this.id = id;
     }
     move () {
-
+        this.moveBot('runner');
+        this.moveBot('blocker');
     }
     moveAsMain () {
-
+        this.moveBot('runner', true);
+        this.moveBot('blocker', true);
     }
-    moveRunner(forOutput = false) {
-        let pod = forOutput ? pods[0] : this.runner(),
+    moveBot (type, forOutput = false,) {
+        let pod = type === 'runner' ? forOutput ? pods[0] : this.runner() : forOutput ? this.blocker() : pods[1],
             cp = cps[pod.ncpId],
             target = new Point(cp.x - 3 * pod.vx,cp.y - 3 * pod.vy),
             rawAngle = pod.diffAngle(target),
-            thrust = Math.abs(rawAngle) < DISABLED_ANGLE ? MAX_THRUST : 0,
-            angle = roundAngle(rawAngle);
+            thrust = Math.abs(rawAngle) < DISABLED_ANGLE ? MAX_THRUST : 0;
 
-
+        if (forOutput)
+            printMove(thrust, rawAngle, pod);
+        else
+            pod.apply(thrust, rawAngle);
     }
+}
+class SearchBot extends Bot {
+    constructor(id, solution) {
+        super(id);
+        this.solution = solution;
+    }
+    
 }
 
 // create CheckPoint classes array
@@ -545,15 +555,16 @@ while (true) {
 
         let inputs = readline().split(' ');
 
-            x = parseInt(inputs[0]);
-            y = parseInt(inputs[1]);
-            vx = parseInt(inputs[2]);
-            vy = parseInt(inputs[3]);
-            angle = parseInt(inputs[4]);
-            ncpId = parseInt(inputs[5]);
+        x = parseInt(inputs[0]);
+        y = parseInt(inputs[1]);
+        vx = parseInt(inputs[2]);
+        vy = parseInt(inputs[3]);
+        angle = parseInt(inputs[4]);
+        ncpId = parseInt(inputs[5]);
 
         if (r === 0 && i > 1 && angle > -1)
             is_p2 = true;
+
         pods[i].update(x, y, vx, vy, angle, ncpId);
 
     }
