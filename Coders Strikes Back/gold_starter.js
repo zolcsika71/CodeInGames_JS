@@ -563,7 +563,7 @@ class SearchBot extends Bot {
 
     }
     getSolutionScore (solution) {
-
+        if (solution.score === -1)
     }
     
 }
