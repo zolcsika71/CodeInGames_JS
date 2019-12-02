@@ -7,6 +7,7 @@ const
     DISABLED_ANGLE = 90,
     THRUST_BOOST = 'BOOST',
     THRUST_SHIELD = 'SHIELD',
+    NOW = Date.now();
     E = 0.00001;
 
 let r = -1,
@@ -30,6 +31,9 @@ function rnd(n, b = 0) {
 }
 function roundAngle(angle) {
     return Math.max(-18, Math.min(18, angle));
+}
+function cloneClass(classToClone) {
+    return Object.assign(Object.create(Object.getPrototypeOf(classToClone)), classToClone);
 }
 function printMove(thrust, angle, pod) {
     let a = pod.angle + roundAngle(angle);
@@ -531,6 +535,35 @@ class SearchBot extends Bot {
     constructor(id, solution) {
         super(id);
         this.solution = solution;
+    }
+    move(solution) {
+        pods[this.id].apply(solution.thrusts[turn], solution.angles[turn]);
+        pods[this.id + 1].apply(solution.thrusts[turn + DEPTH], solution.angles[turn + DEPTH]);
+    }
+    solve(time, withSeed = false) {
+        let best = new Solution();
+
+        if (withSeed) {
+            best = cloneClass(this.solution);
+            best.shift();
+        } else {
+            best.runRandomize();
+            if (r === 0 && pods[this.id].dist(cps[1]) > 4000)
+                best.thrusts[0] = 650;
+        }
+        this.getSolutionScore(best);
+
+        let child = new Solution();
+        while (Date.now() < NOW + 1000) {
+            best.mutateChild(child);
+            if (this.getSolutionScore(child) > this.getSolutionScore(best))
+                best = cloneClass(child);
+        }
+        this.solution = cloneClass(best);
+
+    }
+    getSolutionScore (solution) {
+
     }
     
 }
