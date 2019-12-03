@@ -1,4 +1,4 @@
-"use strict";
+
 
 const
     collusionDistToOpp = 800, // Maximum distance for activating shield

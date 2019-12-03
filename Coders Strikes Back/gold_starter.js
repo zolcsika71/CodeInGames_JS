@@ -617,7 +617,7 @@ while (true) {
     timeLimit *= 0.3;
 
     // use this to test reflex bot behavior
-    // me_reflex.move_as_main();
+    //meReflex.moveAsMain();
     opp.solve(timeLimit * 0.15);
     me.solve(timeLimit, r > 0);
 
