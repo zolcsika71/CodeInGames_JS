@@ -24,8 +24,12 @@ let r = -1,
         2: 3,
         3: 2
     },
+    timeLimit = 0,
     x, y, vx, vy, angle, ncpId;
 
+function BB(x) {
+    return JSON.stringify(x, null, 2);
+}
 function rnd(n, b = 0) {
     return Math.random() * (b - n) + n;
 }
@@ -46,6 +50,8 @@ function printMove(thrust, angle, pod) {
 
     let px = Math.round(pod.x + Math.cos(a) * 10000),
         py = Math.round(pod.y + Math.sin(a) * 10000);
+
+    thrust = Math.round(thrust);
 
     if (thrust === -1) {
         console.log(`${px} ${py} ${THRUST_SHIELD}`);
@@ -87,6 +93,11 @@ function play() {
         for (let i = 0; i < 4; i++)
             pods[i].end();
     }
+}
+function load() {
+    for (let pod of pods)
+        pod.load();
+    turn = 0;
 }
 
 class Collision {
@@ -181,9 +192,13 @@ class Checkpoint extends Unit {
     }
 }
 class Pod extends Unit {
-    constructor(id, x, y) {
-        super(id, x, y);
+    constructor(id, x, y, vx, vy) {
+        super(id, x, y, vx, vy);
         this.id = id;
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
         this.radius = 400;
         this.type = 'POD';
         this.ncpId = 1;
@@ -192,79 +207,11 @@ class Pod extends Unit {
         this.checked = 0;
         this.shield = 0;
         this.cache = {};
-        this.podPartner = pods[podPartner[this.id]];
         this.angle = -1;
         this.nextAngle = -1;
     }
-    play (pods, checkpoints) {
-        let collisionWithCheckPoint = false,
-            time = 0,
-            lastCollision = new Collision(null, null, -1);
-
-        while (time < 1) {
-
-            let firstCollision = new Collision(null, null, -1),
-                collision;
-
-            this.checked++;
-
-            for (let i = 0; i < pods.length; i++) {
-                for (let j = i + 1; j < pods.length; j++) {
-
-                    collision = pods[i].collision(pods[j]);
-
-                    // If the collision happens earlier than the current one we keep it
-                    if (collision !== null && collision.time + time < 1 && (firstCollision === null || collision.time < firstCollision.time))
-                        firstCollision = collision;
-                }
-                // Collision with another checkpoint?
-                // It is unnecessary to check all checkpoints here. We only test the pod's next checkpoint.
-                // We could look for the collisions of the pod with all the checkpoints, but if such a collision happens it wouldn't impact the game in any way
-                collision = pods[i].collision(checkpoints[pods[i].ncpId]);
-
-                // If the collision happens earlier than the current one we keep it
-                if (collision !== null && collision.time + time < 1 && (firstCollision === null || collision.time < firstCollision.time)) {
-                    firstCollision = collision;
-                    collisionWithCheckPoint = true;
-                }
-            }
-
-            if (firstCollision.a === null || collisionWithCheckPoint) {
-                // No collision, we can move the pods until the end of the turn
-                for (let i = 0; i < pods.length; i++)
-                    pods[i].move(1 - time);
-
-                if (collisionWithCheckPoint)
-                    this.bounceWithCheckpoint();
-                // End of the turn
-                time = 1;
-            } else {
-                if (!(firstCollision.a === lastCollision.a && firstCollision.b === lastCollision.b && firstCollision.t === 0)) {
-                    // Move the pods to reach the time `t` of the collision
-                    for (let i = 0; i < pods.length; ++i)
-                        pods[i].move(firstCollision.time);
-
-                    // Play out the collision
-                    firstCollision.a.bounce(firstCollision.b);
-                    time += firstCollision.time;
-                }
-                lastCollision = Object.assign(firstCollision);
-
-            }
-        }
-        for (let i = 0; i < pods.length; ++i)
-            pods[i].end();
-
-    }
-    run (pods, checkpoints, target, thrust) {
-        for (let i = 0; i < pods.length; i++) {
-            pods[i].rotate(new Point(target.x, target.y));
-            pods[i].boost(thrust);
-        }
-        this.play(pods, checkpoints)
-    }
-    score (checkpoints) {
-        return this.checked * 50000 - this.dist(checkpoints[this.ncpId]);
+    score () {
+        return this.checked * 50000 - this.dist(cps[this.ncpId]);
     }
     setAngle (angle) {
         // Can't turn by more than 18° in one turn
@@ -476,10 +423,11 @@ class Solution {
     randomize (idx, full = false) {
         let r = rnd(2);
         if (full || r === 0)
-            this.angles[idx] = Math.max(-18, Math.min(18, rnd(-40, 40)));
+            this.angles[idx] = roundAngle(rnd(-40, 40));
 
         if (full || r === 1) {
             if (rnd(100) >= SHIELD_PROB)
+                // this can't lower 50
                 this.thrusts[idx] = Math.max(0, Math.min(MAX_THRUST, rnd(-0.5 * MAX_THRUST, 2 * MAX_THRUST)));
             else
                 this.thrusts[idx] = -1;
@@ -495,14 +443,19 @@ class Bot {
     constructor(id) {
         this.id = id;
     }
-    runner () {
-        return this.getScore(pods[this.id], pods[this.id + 1]);
+    runner (pod0 = pods[this.id], pod1 = pods[this.id + 1]) {
+        //console.error(`runner -> ${this.id}`);
+        //console.error(`${pod0.id} pod0: ${pod0.score()} ${pod1.id} pod1: ${pod1.score()}`);
+        return this.getScore(pod0, pod1);
     }
-    blocker () {
-        return this.getScore(pods[this.id].podPartner, pods[this.id + 1].podPartner)
+    blocker (pod0 = pods[this.id], pod1 = pods[this.id + 1]) {
+        //console.error(`blocker -> ${this.id}`;
+        //console.error(`${pod0.podPartner.id} pod0.partner: ${pod0.podPartner.score()} ${pod1.podPartner.id} pod1.partner: ${pod1.podPartner.score()}`);
+        return this.getScore(pod0.podPartner, pod1.podPartner);
     }
     getScore (pod0, pod1) {
-        return pod0.score() - pod1.score() >= 1000 ? pod0 : pod1;
+        //console.error(`${pod0.id} pod0: ${pod0.score()} ${pod1.id} pod1: ${pod1.score()}`);
+        return pod0.score() - pod1.score() >= -1000 ? pod0 : pod1;
     }
 }
 class ReflexBot extends Bot {
@@ -519,6 +472,9 @@ class ReflexBot extends Bot {
         this.moveBot('blocker', true);
     }
     moveBot (type, forOutput = false,) {
+
+        //console.error(`err: type: ${type} forOutput: ${forOutput} runner: ${this.runner()} blocker ${this.blocker()}`);
+
         let pod = type === 'runner' ? forOutput ? pods[0] : this.runner() : forOutput ? this.blocker() : pods[1],
             cp = cps[pod.ncpId],
             target = new Point(cp.x - 3 * pod.vx,cp.y - 3 * pod.vy),
@@ -532,12 +488,23 @@ class ReflexBot extends Bot {
     }
 }
 class SearchBot extends Bot {
-    constructor(id, solution) {
+    constructor(id) {
         super(id);
-        this.solution = solution;
+        this.opponentBots = [];
     }
     move(solution) {
-        pods[this.id].apply(solution.thrusts[turn], solution.angles[turn]);
+        //console.error(`solution: ${solution.thrusts.length} turn: ${turn}`);
+        //console.error(`thrust: ${solution.thrusts[turn]} angle: ${solution.angles[turn]} turn: ${turn}`);
+
+        if (solution === undefined) {
+            console.error(`solution undefined`);
+            return;
+        }
+
+        let thrust = solution.thrusts[turn],
+            angle = solution.angles[turn];
+
+        pods[this.id].apply(thrust, angle);
         pods[this.id + 1].apply(solution.thrusts[turn + DEPTH], solution.angles[turn + DEPTH]);
     }
     solve(time, withSeed = false) {
@@ -563,7 +530,44 @@ class SearchBot extends Bot {
 
     }
     getSolutionScore (solution) {
-        if (solution.score === -1)
+        if (solution.score === -1) {
+            let scores = [];
+            for (let bot of this.opponentBots)
+                scores.push(this.getBotScore(solution, bot));
+            solution.score = Math.min(...scores);
+        }
+        return solution.score;
+
+    }
+    getBotScore (solution, opponentBot) {
+        let score = 0;
+        while (turn < DEPTH) {
+            this.move(solution);
+            opponentBot.move();
+            play();
+            if (turn === 0)
+                score += 0.1 * this.evaluate();
+            turn++;
+        }
+        score += 0.9 * this.evaluate();
+        load();
+
+        if (r > 0)
+            sols_ct++;
+
+        return score;
+    }
+    evaluate () {
+        let myRunner = this.runner(pods[this.id], pods[this.id + 1]),
+            myBlocker = this.blocker(pods[this.id], pods[this.id + 1]),
+            oppRunner = this.runner(pods[(this.id + 2) % 4], pods[(this.id + 3) % 4]),
+            oppBlocker = this.blocker(pods[(this.id + 2) % 4], pods[(this.id + 3) % 4]),
+            score = myRunner.score() - oppRunner.score();
+
+        // TODO maybe not a great idea? :)
+        //score -= myBlocker.dist(myRunner);
+
+        return score;
     }
     
 }
@@ -578,6 +582,16 @@ for (let i = 0; i < cp_ct; i++) {
 // create pod classes array
 for (let i = 0; i < 4; i++)
     pods[i] = new Pod(i, 0, 0);
+
+for (let i = 0; i < 4; i++)
+    pods[i].podPartner = pods[podPartner[i]];
+
+let meReflex = new ReflexBot (0),
+    me = new SearchBot(0),
+    opp = new SearchBot(2);
+
+opp.opponentBots.push(meReflex);
+me.opponentBots.push(me);
 
 
 while (true) {
@@ -599,10 +613,23 @@ while (true) {
             is_p2 = true;
 
         pods[i].update(x, y, vx, vy, angle, ncpId);
-
     }
 
+    let now = Date.now();
 
+    timeLimit = r ? 0.142 : 0.98;
+    timeLimit *= 0.3;
+
+    // use this to test reflex bot behavior
+    // me_reflex.move_as_main();
+    opp.solve(timeLimit * 0.15);
+    me.solve(timeLimit, r > 0);
+
+    if (r > 0)
+        console.error(`Avg. iterations: ${sols_ct / r} Avg. sims: ${sols_ct * DEPTH / r}`);
+
+    printMove(me.solution.thrusts[0], me.solution.angles[0], pods[0]);
+    printMove(me.solution.thrusts[DEPTH], me.solution.angles[DEPTH], pods[1]);
 
 }
 
