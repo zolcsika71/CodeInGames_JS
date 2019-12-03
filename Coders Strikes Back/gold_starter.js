@@ -75,6 +75,17 @@ function play() {
                     firstCollision.time = collisionTime
                 }
             }
+
+            // TODO this is wasteful, get rid of it
+            /*
+            let collisionTime = pods[i].collisionTime(cps[pods[i].ncpId]);
+            if (collisionTime > -1 && collisionTime + t < 1 && (firstCollision.time === -1 || collisionTime < firstCollision.time)) {
+                firstCollision.a = pods[i];
+                firstCollision.b = cps[pods[i].ncpId];
+                firstCollision.time = collisionTime;
+            }
+             */
+
         }
         if (firstCollision.time === -1) {
             for (let i = 0; i < 4; i++)
@@ -551,7 +562,7 @@ class SearchBot extends Bot {
             score = myRunner.score() - oppRunner.score();
 
         // TODO maybe not a great idea? :)
-        //score -= myBlocker.dist(myRunner);
+        score -= myBlocker.dist(myRunner);
 
         return score;
     }
