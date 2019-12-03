@@ -7,7 +7,6 @@ const
     DISABLED_ANGLE = 90,
     THRUST_BOOST = 'BOOST',
     THRUST_SHIELD = 'SHIELD',
-    NOW = Date.now();
     E = 0.00001;
 
 let r = -1,
@@ -25,7 +24,7 @@ let r = -1,
         3: 2
     },
     timeLimit = 0,
-    x, y, vx, vy, angle, ncpId;
+    now, x, y, vx, vy, angle, ncpId;
 
 function BB(x) {
     return JSON.stringify(x, null, 2);
@@ -194,11 +193,6 @@ class Checkpoint extends Unit {
 class Pod extends Unit {
     constructor(id, x, y, vx, vy) {
         super(id, x, y, vx, vy);
-        this.id = id;
-        this.x = x;
-        this.y = y;
-        this.vx = vx;
-        this.vy = vy;
         this.radius = 400;
         this.type = 'POD';
         this.ncpId = 1;
@@ -281,15 +275,6 @@ class Pod extends Unit {
         this.bounceWithPod(pods[unit.id]);
     }
     bounceWithPod (pod) {
-        // This is one of the rare places where a Vector class would have made the code more readable.
-        // But this place is called so often that I can't pay a performance price to make it more readable.
-        function applyImpactVector(fx, fy, myMass, unitMass) {
-            this.vx -= fx / myMass;
-            this.vy -= fy / myMass;
-            pod.vx += fx / unitMass;
-            pod.vy += fy / unitMass;
-
-        }
         // If a pod has its shield active its mass is 10 otherwise it's 1
         let m1 = this.shield === 4 ? 10 : 1,
             m2 = pod.shield === 4 ? 10 : 1,
@@ -305,7 +290,10 @@ class Pod extends Unit {
             impulse = Math.sqrt(Math.pow(fx, 2) + Math.pow(fy, 2));
 
         // We apply the impact vector once
-        applyImpactVector(fx, fy, m1, m2);
+        this.vx -= fx / m1;
+        this.vy -= fy / m1;
+        pod.vx += fx / m2;
+        pod.vy += fy / m2;
 
         // If the norm of the impact vector is less than 120, we normalize it to 120
         if (impulse < 120) {
@@ -314,7 +302,10 @@ class Pod extends Unit {
         }
 
         // We apply the impact vector a second time
-        applyImpactVector(fx, fy, m1, m2);
+        this.vx -= fx / m1;
+        this.vy -= fy / m1;
+        pod.vx += fx / m2;
+        pod.vy += fy / m2;
 
     }
     diffAngle (point) {
@@ -496,11 +487,6 @@ class SearchBot extends Bot {
         //console.error(`solution: ${solution.thrusts.length} turn: ${turn}`);
         //console.error(`thrust: ${solution.thrusts[turn]} angle: ${solution.angles[turn]} turn: ${turn}`);
 
-        if (solution === undefined) {
-            console.error(`solution undefined`);
-            return;
-        }
-
         let thrust = solution.thrusts[turn],
             angle = solution.angles[turn];
 
@@ -521,7 +507,7 @@ class SearchBot extends Bot {
         this.getSolutionScore(best);
 
         let child = new Solution();
-        while (Date.now() < NOW + 1000) {
+        while (Date.now() - now < time) {
             best.mutateChild(child);
             if (this.getSolutionScore(child) > this.getSolutionScore(best))
                 best = cloneClass(child);
@@ -543,7 +529,7 @@ class SearchBot extends Bot {
         let score = 0;
         while (turn < DEPTH) {
             this.move(solution);
-            opponentBot.move();
+            opponentBot.move(solution);
             play();
             if (turn === 0)
                 score += 0.1 * this.evaluate();
@@ -569,7 +555,6 @@ class SearchBot extends Bot {
 
         return score;
     }
-    
 }
 
 // create CheckPoint classes array
@@ -615,9 +600,9 @@ while (true) {
         pods[i].update(x, y, vx, vy, angle, ncpId);
     }
 
-    let now = Date.now();
+    now = Date.now();
 
-    timeLimit = r ? 0.142 : 0.98;
+    timeLimit = r ? 142 : 980;
     timeLimit *= 0.3;
 
     // use this to test reflex bot behavior
