@@ -15,22 +15,21 @@ let r = -1,
     is_p2 = false,
     laps = parseInt(readline()),
     cp_ct = parseInt(readline()),
-    pods = [],
-    cps = [],
+    pods = [...Array(4)],
+    cps = [...Array(cp_ct)],
+    now,
     podPartner = {
         0: 1,
         1: 0,
         2: 3,
         3: 2
-    },
-    timeLimit = 0,
-    now, x, y, vx, vy, angle, ncpId;
+    };
 
 function BB(x) {
     return JSON.stringify(x, null, 2);
 }
 function rnd(n, b = 0) {
-    return Math.random() * (b - n) + n;
+    return Math.round(Math.random() * (b - n) + n);
 }
 function roundAngle(angle) {
     return Math.max(-18, Math.min(18, angle));
@@ -151,7 +150,7 @@ class Point {
     }
 }
 class Unit extends Point {
-    constructor (x, y, id, type, radius, vx, vy) {
+    constructor (id, x, y, type, radius, vx, vy) {
         super(x, y);
         this.id = id;
         this.type = type;
@@ -161,14 +160,14 @@ class Unit extends Point {
     }
     collisionTime (unit) {
 
-        if (vx === unit.vx && vy === unit.vy) // Optimisation. Objects with the same speed will never collide
+        if (this.vx === unit.vx && this.vy === unit.vy) // Optimisation. Objects with the same speed will never collide
             return -1;
 
         // We place ourselves in the reference frame of unit. unit is therefore stationary and is at (0,0)
-        let dx = x - unit.x,
-            dy = y - unit.y,
-            dvx = vx - unit.vx,
-            dvy = vy - unit.vy,
+        let dx = this.x - unit.x,
+            dy = this.y - unit.y,
+            dvx = this.vx - unit.vx,
+            dvy = this.vy - unit.vy,
             a = Math.pow(dvx, 2) + Math.pow(dvy, 2),
             sr2 = this.type === 'CP' ? 357604 : 640000;
 
@@ -191,10 +190,7 @@ class Unit extends Point {
 }
 class Checkpoint extends Unit {
     constructor(id, x, y) {
-        super(x, y);
-        this.id = id;
-        this.x = x;
-        this.y = y;
+        super(id, x, y);
         this.vx = 0;
         this.vy = 0;
         this.type = 'CP';
@@ -215,9 +211,6 @@ class Pod extends Unit {
         this.angle = -1;
         this.nextAngle = -1;
     }
-    score () {
-        return this.checked * 50000 - this.dist(cps[this.ncpId]);
-    }
     setAngle (angle) {
         // Can't turn by more than 18° in one turn
         angle = roundAngle(angle);
@@ -228,8 +221,9 @@ class Pod extends Unit {
             this.angle = this.angle - 360;
         else if (this.angle < 0)
             this.angle += 360;
-
-
+    }
+    score () {
+        return this.checked * 50000 - this.dist(cps[this.ncpId]);
     }
     apply (thrust, angle) {
 
@@ -240,10 +234,12 @@ class Pod extends Unit {
         else
             this.boost(thrust);
     }
+    /*
     rotate (point) {
         let angle = this.diffAngle(point);
         this.setAngle(angle);
     }
+     */
     boost (thrust) {
 
         if (this.shield > 0)
@@ -280,21 +276,21 @@ class Pod extends Unit {
         if (unit.type === 'CP') {
             this.checked++;
             this.timeout = this.podPartner.timeout = 100;
-            this.ncpId = (ncpId + 1) % cp_ct;
+            this.ncpId = (this.ncpId + 1) % cp_ct;
             return;
         }
-        this.bounceWithPod(pods[unit.id]);
+        this.bounceWithPod(unit);
     }
-    bounceWithPod (pod) {
+    bounceWithPod (unit) {
         // If a pod has its shield active its mass is 10 otherwise it's 1
         let m1 = this.shield === 4 ? 10 : 1,
-            m2 = pod.shield === 4 ? 10 : 1,
+            m2 = unit.shield === 4 ? 10 : 1,
             mCoEff = (m1 + m2) / (m1 * m2),
-            nx = this.x - pod.x,
-            ny = this.y - pod.y,
+            nx = this.x - unit.x,
+            ny = this.y - unit.y,
             dst2 = Math.pow(nx, 2) + Math.pow(ny, 2),
-            dvx = this.vx - pod.vx,
-            dvy = this.vy - pod.vy,
+            dvx = this.vx - unit.vx,
+            dvy = this.vy - unit.vy,
             impactVector = nx * dvx + ny * dvy, // fx and fy are the components of the impact vector. impactVector is just there for optimisation purposes
             fx = (nx * impactVector) / (dst2 * mCoEff),
             fy = (ny * impactVector) / (dst2 * mCoEff),
@@ -303,8 +299,8 @@ class Pod extends Unit {
         // We apply the impact vector once
         this.vx -= fx / m1;
         this.vy -= fy / m1;
-        pod.vx += fx / m2;
-        pod.vy += fy / m2;
+        unit.vx += fx / m2;
+        unit.vy += fy / m2;
 
         // If the norm of the impact vector is less than 120, we normalize it to 120
         if (impulse < 120) {
@@ -315,8 +311,8 @@ class Pod extends Unit {
         // We apply the impact vector a second time
         this.vx -= fx / m1;
         this.vy -= fy / m1;
-        pod.vx += fx / m2;
-        pod.vy += fy / m2;
+        unit.vx += fx / m2;
+        unit.vy += fy / m2;
 
     }
     diffAngle (point) {
@@ -329,14 +325,14 @@ class Pod extends Unit {
         if (right < left)
             return right;
         else
-            // We return a negative angle if we must rotate to left
+            // We return a negative angle if we must  to left
             return -left;
 
     }
     getAngle (point) {
         let dist = this.dist(point),
-            dx = (point.x - x) / dist,
-            dy = (point.y - y) / dist,
+            dx = (point.x - this.x) / dist,
+            dy = (point.y - this.y) / dist,
             // Simple trigonometry. We multiply by 180.0 / PI to convert radiants to degrees.
             angle = Math.acos(dx) * 180 / Math.PI;
 
@@ -362,7 +358,7 @@ class Pod extends Unit {
         this.ncpId = ncpId;
 
         if (is_p2 && this.id > 1)
-            [angle, this.nextAngle] = [this.nextAngle, angle]; // swap the variables
+            [this.angle, this.nextAngle] = [this.nextAngle, this.angle]; // swap the variables
 
         this.angle = angle;
 
@@ -420,7 +416,8 @@ class Solution {
     mutateChild (child) {
         child.angles = [...this.angles];
         child.thrusts = [...this.thrusts];
-        child.mutate()
+        child.mutate();
+        child.score = -1;
     }
     randomize (idx, full = false) {
         let r = rnd(2);
@@ -475,13 +472,13 @@ class ReflexBot extends Bot {
     }
     moveBot (type, forOutput = false,) {
 
-        //console.error(`err: type: ${type} forOutput: ${forOutput} runner: ${this.runner()} blocker ${this.blocker()}`);
-
         let pod = type === 'runner' ? forOutput ? pods[0] : this.runner() : forOutput ? this.blocker() : pods[1],
             cp = cps[pod.ncpId],
             target = new Point(cp.x - 3 * pod.vx,cp.y - 3 * pod.vy),
             rawAngle = pod.diffAngle(target),
             thrust = Math.abs(rawAngle) < DISABLED_ANGLE ? MAX_THRUST : 0;
+
+        //console.error(`err: type: ${type} forOutput: ${forOutput} runner: ${this.runner().id} blocker ${this.blocker().id} pod: ${pod.id}`);
 
         if (forOutput)
             printMove(thrust, rawAngle, pod);
@@ -497,11 +494,7 @@ class SearchBot extends Bot {
     move(solution) {
         //console.error(`solution: ${solution.thrusts.length} turn: ${turn}`);
         //console.error(`thrust: ${solution.thrusts[turn]} angle: ${solution.angles[turn]} turn: ${turn}`);
-
-        let thrust = solution.thrusts[turn],
-            angle = solution.angles[turn];
-
-        pods[this.id].apply(thrust, angle);
+        pods[this.id].apply(solution.thrusts[turn], solution.angles[turn]);
         pods[this.id + 1].apply(solution.thrusts[turn + DEPTH], solution.angles[turn + DEPTH]);
     }
     solve(time, withSeed = false) {
@@ -579,15 +572,18 @@ for (let i = 0; i < cp_ct; i++) {
 for (let i = 0; i < 4; i++)
     pods[i] = new Pod(i, 0, 0);
 
+// fill podPartners
 for (let i = 0; i < 4; i++)
     pods[i].podPartner = pods[podPartner[i]];
+
 
 let meReflex = new ReflexBot (0),
     me = new SearchBot(0),
     opp = new SearchBot(2);
 
+// fill searchBots opponents array
 opp.opponentBots.push(meReflex);
-me.opponentBots.push(me);
+me.opponentBots.push(opp);
 
 
 while (true) {
@@ -596,14 +592,13 @@ while (true) {
 
     for (let i = 0; i < 4; i++) {
 
-        let inputs = readline().split(' ');
-
-        x = parseInt(inputs[0]);
-        y = parseInt(inputs[1]);
-        vx = parseInt(inputs[2]);
-        vy = parseInt(inputs[3]);
-        angle = parseInt(inputs[4]);
-        ncpId = parseInt(inputs[5]);
+        let inputs = readline().split(' '),
+            x = parseInt(inputs[0]),
+            y = parseInt(inputs[1]),
+            vx = parseInt(inputs[2]),
+            vy = parseInt(inputs[3]),
+            angle = parseInt(inputs[4]),
+            ncpId = parseInt(inputs[5]);
 
         if (r === 0 && i > 1 && angle > -1)
             is_p2 = true;
@@ -613,7 +608,8 @@ while (true) {
 
     now = Date.now();
 
-    timeLimit = r ? 142 : 980;
+    let timeLimit = r ? 142 : 980;
+
     timeLimit *= 0.3;
 
     // use this to test reflex bot behavior

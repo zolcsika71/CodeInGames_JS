@@ -210,15 +210,11 @@ class Pod extends Unit {
     play (pods, checkpoints) {
         let collisionWithCheckPoint = false,
             time = 0,
-            lastCollision = {
-                unitA: this.unitA,
-                unitB: this.unitB,
-                time: this.time
-            };
+            lastCollision = new Collision(null, null, 0);
 
         while (time < 1) {
 
-            let firstCollision = {},
+            let firstCollision = new Collision(null, null, 0),
                 collision;
 
             this.checked++;
@@ -244,7 +240,7 @@ class Pod extends Unit {
                 }
             }
 
-            if (Object.keys(firstCollision).length === 0 || collisionWithCheckPoint) {
+            if (firstCollision.unitA === null || collisionWithCheckPoint) {
                 // No collision, we can move the pods until the end of the turn
                 for (let i = 0; i < pods.length; i++)
                     pods[i].move(1 - time);
@@ -263,7 +259,7 @@ class Pod extends Unit {
                     firstCollision.unitA.bounce(firstCollision.unitB);
                     time += firstCollision.time;
                 }
-                lastCollision = Object.assign(firstCollision);
+                lastCollision = firstCollision;
 
             }
         }
