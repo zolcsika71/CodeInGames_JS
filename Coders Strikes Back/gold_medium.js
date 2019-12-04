@@ -439,8 +439,8 @@ class Solution {
     }
 }
 class Bot {
-    constructor(id) {
-        this.id = id;
+    constructor() {
+        this.id = 0;
     }
     runner (pod0 = pods[this.id], pod1 = pods[this.id + 1]) {
         //console.error(`runner -> ${this.id}`);
@@ -513,8 +513,15 @@ class SearchBot extends Bot {
         let child = new Solution();
         while (Date.now() - now < time) {
             best.mutateChild(child);
-            if (this.getSolutionScore(child) > this.getSolutionScore(best))
+
+            let solutionScoreChild = this.getSolutionScore(child),
+                solutionScoreBest = this.getSolutionScore(best);
+
+            //console.error(`score -> child: ${solutionScoreChild} best: ${solutionScoreBest}`);
+
+            if (solutionScoreChild > solutionScoreBest)
                 best = cloneClass(child);
+
         }
         this.solution = cloneClass(best);
 
@@ -552,10 +559,11 @@ class SearchBot extends Bot {
             myBlocker = this.blocker(pods[this.id], pods[this.id + 1]),
             oppRunner = this.runner(pods[(this.id + 2) % 4], pods[(this.id + 3) % 4]),
             oppBlocker = this.blocker(pods[(this.id + 2) % 4], pods[(this.id + 3) % 4]),
-            score = myRunner.score() - oppRunner.score();
+            score = (myRunner.score() - oppRunner.score()) * 50;
 
         // TODO maybe not a great idea? :)
-        score -= myBlocker.dist(myRunner);
+        score -= myBlocker.dist(oppRunner);
+        //score -= myBlocker.diffAngle(oppRunner);
 
         return score;
     }
@@ -568,6 +576,7 @@ for (let i = 0; i < cp_ct; i++) {
         cpY = parseInt(inputs[1]);
     cps[i] = new Checkpoint(i, cpX, cpY);
 }
+
 // create pod classes array
 for (let i = 0; i < 4; i++)
     pods[i] = new Pod(i, 0, 0);

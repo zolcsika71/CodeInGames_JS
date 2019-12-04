@@ -589,7 +589,10 @@ public:
 
         float score = my_runner->score() - opp_runner->score();
         // TODO maybe not a great idea? :)
-        score -= my_blocker->dist(my_runner);
+        //score -= my_blocker->dist(my_runner);
+        //score -= my_blocker->dist(cps[opp_runner->ncpid]);
+        //score -= my_blocker->diff_angle(opp_runner);
+        score -= my_blocker->dist(opp_runner);
 
         return score;
     }
@@ -615,14 +618,14 @@ void play() {
             }
 
             // TODO this is wasteful, get rid of it
-            
+
             float col_time = pods[i]->collision_time(cps[pods[i]->ncpid]);
             if (col_time > -1 && col_time + t < 1.0 && (first_col.t == -1 || col_time < first_col.t)) {
                 first_col.a = pods[i];
                 first_col.b = cps[pods[i]->ncpid];
                 first_col.t = col_time;
             }
-            
+
         }
 
         if (first_col.t == -1) {
@@ -655,10 +658,10 @@ void print_move(int thrust, float angle, Pod* pod) {
     }
 
     a = a * M_PI / 180.0;
-    float px = pod->x + cos(a) * 10000.0;
-    float py = pod->y + sin(a) * 10000.0;
+    float px = pod->x + cos(a) * 1000.0;
+    float py = pod->y + sin(a) * 1000.0;
 
-    char copyright[] = "github.com/inoryy/csb-ai-starter"; // do not remove
+    char copyright[] = " "; // do not remove
     if (thrust == -1) {
         printf("%d %d SHIELD %s\n", (int) round(px), (int) round(py), copyright);
         pod->shield = 4;
