@@ -555,7 +555,7 @@ class SearchBot extends Bot {
             score = myRunner.score() - oppRunner.score();
 
         // TODO maybe not a great idea? :)
-        score -= myBlocker.dist(myRunner);
+        score -= myBlocker.dist(oppRunner);
 
         return score;
     }

@@ -5,6 +5,9 @@ function roundAngle(angle) {
     return Math.max(-18, Math.min(18, angle));
 }
 
-console.log(rnd(-50, 200));
+const
+    MAX_THRUST = 100;
+
+console.log(Math.max(0, Math.min(MAX_THRUST, rnd(-0.5 * MAX_THRUST, 2 * MAX_THRUST))));
 
 //console.log(roundAngle(3));

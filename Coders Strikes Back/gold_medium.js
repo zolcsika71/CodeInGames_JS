@@ -46,19 +46,17 @@ function printMove(thrust, angle, pod) {
 
     a = a * Math.PI / 180.0;
 
-    let px = Math.round(pod.x + Math.cos(a) * 10000),
-        py = Math.round(pod.y + Math.sin(a) * 10000);
-
-    thrust = Math.round(thrust);
+    let px = Math.round(pod.x + Math.cos(a) * 1000),
+        py = Math.round(pod.y + Math.sin(a) * 1000);
 
     if (thrust === -1) {
-        console.log(`${px} ${py} ${THRUST_SHIELD}`);
+        console.log(`${px} ${py} ${THRUST_SHIELD} ${THRUST_SHIELD}`);
         pod.shield = 4;
     } else if (thrust === 650) {
-        console.log(`${px} ${py} ${THRUST_BOOST}`);
+        console.log(`${px} ${py} ${THRUST_BOOST} ${THRUST_BOOST}`);
         pod.boostAvailable = false;
     } else
-        console.log(`${px} ${py} ${thrust}`);
+        console.log(`${px} ${py} ${thrust} ${thrust}`);
 }
 function play() {
     let t = 0;
@@ -76,23 +74,18 @@ function play() {
             }
 
             // TODO this is wasteful, get rid of it
-            /*
             let collisionTime = pods[i].collisionTime(cps[pods[i].ncpId]);
             if (collisionTime > -1 && collisionTime + t < 1 && (firstCollision.time === -1 || collisionTime < firstCollision.time)) {
                 firstCollision.a = pods[i];
                 firstCollision.b = cps[pods[i].ncpId];
                 firstCollision.time = collisionTime;
             }
-             */
-
         }
         if (firstCollision.time === -1) {
             for (let i = 0; i < 4; i++)
                 pods[i].move(1 - t);
-
             t = 1;
         } else {
-
             for (let i = 0; i < 4; i++)
                 pods[i].move(firstCollision.time);
 
@@ -342,6 +335,7 @@ class Pod extends Unit {
         return angle;
     }
     update (x, y, vx, vy, angle, ncpId) {
+
         if (this.shield > 0)
             this.shield--;
 
@@ -358,7 +352,7 @@ class Pod extends Unit {
         this.ncpId = ncpId;
 
         if (is_p2 && this.id > 1)
-            [this.angle, this.nextAngle] = [this.nextAngle, this.angle]; // swap the variables
+            [angle, this.nextAngle] = [this.nextAngle, angle]; // swap the variables
 
         this.angle = angle;
 
@@ -426,7 +420,6 @@ class Solution {
 
         if (full || r === 1) {
             if (rnd(100) >= SHIELD_PROB)
-                // this can't lower 50
                 this.thrusts[idx] = Math.max(0, Math.min(MAX_THRUST, rnd(-0.5 * MAX_THRUST, 2 * MAX_THRUST)));
             else
                 this.thrusts[idx] = -1;
@@ -439,8 +432,8 @@ class Solution {
     }
 }
 class Bot {
-    constructor() {
-        this.id = 0;
+    constructor(id) {
+        this.id = id;
     }
     runner (pod0 = pods[this.id], pod1 = pods[this.id + 1]) {
         //console.error(`runner -> ${this.id}`);
@@ -508,7 +501,9 @@ class SearchBot extends Bot {
             if (r === 0 && pods[this.id].dist(cps[1]) > 4000)
                 best.thrusts[0] = 650;
         }
+        //console.error(`BestID: ${this.id} ${BB(best)}`);
         this.getSolutionScore(best);
+        //console.error(`id: ${this.id} score: ${best.score}`);
 
         let child = new Solution();
         while (Date.now() - now < time) {
@@ -524,13 +519,16 @@ class SearchBot extends Bot {
 
         }
         this.solution = cloneClass(best);
+        //console.error(`id: ${this.id} score: ${this.solution.score}`);
 
     }
     getSolutionScore (solution) {
         if (solution.score === -1) {
             let scores = [];
-            for (let bot of this.opponentBots)
+            for (let bot of this.opponentBots) {
+                //console.error(`thisId: ${this.id} oppBot: ${bot.id}`);
                 scores.push(this.getBotScore(solution, bot));
+            }
             solution.score = Math.min(...scores);
         }
         return solution.score;
@@ -559,9 +557,11 @@ class SearchBot extends Bot {
             myBlocker = this.blocker(pods[this.id], pods[this.id + 1]),
             oppRunner = this.runner(pods[(this.id + 2) % 4], pods[(this.id + 3) % 4]),
             oppBlocker = this.blocker(pods[(this.id + 2) % 4], pods[(this.id + 3) % 4]),
-            score = (myRunner.score() - oppRunner.score()) * 50;
+            score = (myRunner.score() - oppRunner.score());
 
-        // TODO maybe not a great idea? :)
+        //console.error(`id: ${this.id}`);
+        //console.error(`myRunner: ${myRunner.id} myBlocker: ${myBlocker.id} oppRunner: ${oppRunner.id} oppBlocker: ${oppBlocker.id}`);
+
         score -= myBlocker.dist(oppRunner);
         //score -= myBlocker.diffAngle(oppRunner);
 
@@ -579,14 +579,14 @@ for (let i = 0; i < cp_ct; i++) {
 
 // create pod classes array
 for (let i = 0; i < 4; i++)
-    pods[i] = new Pod(i, 0, 0);
+    pods[i] = new Pod(i);
 
 // fill podPartners
 for (let i = 0; i < 4; i++)
     pods[i].podPartner = pods[podPartner[i]];
 
 
-let meReflex = new ReflexBot (0),
+let meReflex = new ReflexBot(0),
     me = new SearchBot(0),
     opp = new SearchBot(2);
 
@@ -623,6 +623,9 @@ while (true) {
 
     // use this to test reflex bot behavior
     //meReflex.moveAsMain();
+
+    //console.error(`meID: ${me.id} oppID: ${opp.id}`)
+
     opp.solve(timeLimit * 0.15);
     me.solve(timeLimit, r > 0);
 
