@@ -1,4 +1,5 @@
 const
+    TEST_REFLEX = false, // use this to test reflex bot behavior
     CP = 0,
     POD = 1,
     DEPTH = 6,
@@ -469,7 +470,7 @@ class ReflexBot extends Bot {
             cp = cps[pod.ncpId],
             target = new Point(cp.x - 3 * pod.vx,cp.y - 3 * pod.vy),
             rawAngle = pod.diffAngle(target),
-            thrust = Math.abs(rawAngle) < DISABLED_ANGLE ? MAX_THRUST : 0;
+            thrust = Math.abs(rawAngle) < DISABLED_ANGLE ? MAX_THRUST : 5;
 
         //console.error(`err: type: ${type} forOutput: ${forOutput} runner: ${this.runner().id} blocker ${this.blocker().id} pod: ${pod.id}`);
 
@@ -486,7 +487,12 @@ class SearchBot extends Bot {
     }
     move(solution) {
         //console.error(`solution: ${solution.thrusts.length} turn: ${turn}`);
-        //console.error(`thrust: ${solution.thrusts[turn]} angle: ${solution.angles[turn]} turn: ${turn}`);
+        /*
+        if (this.id === 0) {
+            console.error(`id: ${this.id} thrust: ${solution.thrusts[turn]} angle: ${solution.angles[turn]} idx: ${turn}`);
+            console.error(`id: ${this.id + 1} thrust: ${solution.thrusts[turn + DEPTH]} angle: ${solution.angles[turn + DEPTH]} idx: ${turn + DEPTH}`);
+        }
+         */
         pods[this.id].apply(solution.thrusts[turn], solution.angles[turn]);
         pods[this.id + 1].apply(solution.thrusts[turn + DEPTH], solution.angles[turn + DEPTH]);
     }
@@ -502,7 +508,7 @@ class SearchBot extends Bot {
                 best.thrusts[0] = 650;
         }
         //console.error(`BestID: ${this.id} ${BB(best)}`);
-        this.getSolutionScore(best);
+        //this.getSolutionScore(best);
         //console.error(`id: ${this.id} score: ${best.score}`);
 
         let child = new Solution();
@@ -512,7 +518,8 @@ class SearchBot extends Bot {
             let solutionScoreChild = this.getSolutionScore(child),
                 solutionScoreBest = this.getSolutionScore(best);
 
-            //console.error(`score -> child: ${solutionScoreChild} best: ${solutionScoreBest}`);
+            //if (this.id === 0)
+            //    console.error(`score -> child: ${solutionScoreChild} best: ${solutionScoreBest}`);
 
             if (solutionScoreChild > solutionScoreBest)
                 best = cloneClass(child);
@@ -523,6 +530,7 @@ class SearchBot extends Bot {
 
     }
     getSolutionScore (solution) {
+
         if (solution.score === -1) {
             let scores = [];
             for (let bot of this.opponentBots) {
@@ -531,7 +539,10 @@ class SearchBot extends Bot {
             }
             solution.score = Math.min(...scores);
         }
-        return solution.score;
+
+       return solution.score;
+
+        //return this.getBotScore(solution, this.opponentBots[0]);
 
     }
     getBotScore (solution, opponentBot) {
@@ -559,11 +570,12 @@ class SearchBot extends Bot {
             oppBlocker = this.blocker(pods[(this.id + 2) % 4], pods[(this.id + 3) % 4]),
             score = (myRunner.score() - oppRunner.score());
 
-        //console.error(`id: ${this.id}`);
-        //console.error(`myRunner: ${myRunner.id} myBlocker: ${myBlocker.id} oppRunner: ${oppRunner.id} oppBlocker: ${oppBlocker.id}`);
 
         score -= myBlocker.dist(oppRunner);
+        //score -= myBlocker.dist(cps[oppRunner.ncpId]);
         //score -= myBlocker.diffAngle(oppRunner);
+        if (this.id === 0)
+            console.error(`myRunner: ${myRunner.score()} myBlocker: ${myBlocker.score()} oppRunner: ${oppRunner.score()} oppBlocker: ${oppBlocker.score()}`);
 
         return score;
     }
@@ -621,21 +633,25 @@ while (true) {
 
     timeLimit *= 0.3;
 
-    // use this to test reflex bot behavior
-    //meReflex.moveAsMain();
+    if (TEST_REFLEX)
+        meReflex.moveAsMain();
 
     //console.error(`meID: ${me.id} oppID: ${opp.id}`)
 
-    opp.solve(timeLimit * 0.15);
-    me.solve(timeLimit, r > 0);
+    if (!TEST_REFLEX) {
+        opp.solve(timeLimit * 0.15);
+        me.solve(timeLimit, r > 0);
+    }
 
     console.error(`elapsed time: ${Date.now() - now}`);
 
     if (r > 0)
         console.error(`Avg. iterations: ${sols_ct / r} Avg. sims: ${sols_ct * DEPTH / r}`);
 
-    printMove(me.solution.thrusts[0], me.solution.angles[0], pods[0]);
-    printMove(me.solution.thrusts[DEPTH], me.solution.angles[DEPTH], pods[1]);
+    if (!TEST_REFLEX) {
+        printMove(me.solution.thrusts[0], me.solution.angles[0], pods[0]);
+        printMove(me.solution.thrusts[DEPTH], me.solution.angles[DEPTH], pods[1]);
+    }
 
 }
 
