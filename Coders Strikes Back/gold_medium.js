@@ -50,6 +50,8 @@ function printMove(thrust, angle, pod) {
     let px = Math.round(pod.x + Math.cos(a) * 1000),
         py = Math.round(pod.y + Math.sin(a) * 1000);
 
+    console.error(`podID: ${pod.id} ncp: ${pod.ncpId} angle: ${a} targetX: ${px} targetY: ${py}`);
+
     if (thrust === -1) {
         console.log(`${px} ${py} ${THRUST_SHIELD} ${THRUST_SHIELD}`);
         pod.shield = 4;
@@ -228,12 +230,6 @@ class Pod extends Unit {
         else
             this.boost(thrust);
     }
-    /*
-    rotate (point) {
-        let angle = this.diffAngle(point);
-        this.setAngle(angle);
-    }
-     */
     boost (thrust) {
 
         if (this.shield > 0)
@@ -368,7 +364,7 @@ class Pod extends Unit {
         this.cache.y = this.y;
         this.cache.vx = this.vx;
         this.cache.vy = this.vy;
-        this.cache.npcId = this.ncpId;
+        this.cache.ncpId = this.ncpId;
         this.cache.checked = this.checked;
         this.cache.timeout = this.timeout;
         this.cache.shield = this.shield;
@@ -380,7 +376,7 @@ class Pod extends Unit {
         this.y = this.cache.y;
         this.vx = this.cache.vx;
         this.vy = this.cache.vy;
-        this.ncpId = this.cache.npcId;
+        this.ncpId = this.cache.ncpId;
         this.checked = this.cache.checked;
         this.timeout = this.cache.timeout;
         this.shield = this.cache.shield;
@@ -454,7 +450,6 @@ class Bot {
 class ReflexBot extends Bot {
     constructor(id) {
         super(id);
-        this.id = id;
     }
     move () {
         this.moveBot('runner');
@@ -472,7 +467,7 @@ class ReflexBot extends Bot {
             rawAngle = pod.diffAngle(target),
             thrust = Math.abs(rawAngle) < DISABLED_ANGLE ? MAX_THRUST : 5;
 
-        //console.error(`err: type: ${type} forOutput: ${forOutput} runner: ${this.runner().id} blocker ${this.blocker().id} pod: ${pod.id}`);
+        //console.error(`err: type: ${type} runner: ${this.runner().id} blocker ${this.blocker().id} pod: ${pod.id}`);
 
         if (forOutput)
             printMove(thrust, rawAngle, pod);
@@ -485,7 +480,7 @@ class SearchBot extends Bot {
         super(id);
         this.opponentBots = [];
     }
-    move(solution) {
+    moveSearchBot(solution) {
         //console.error(`solution: ${solution.thrusts.length} turn: ${turn}`);
         /*
         if (this.id === 0) {
@@ -495,6 +490,9 @@ class SearchBot extends Bot {
          */
         pods[this.id].apply(solution.thrusts[turn], solution.angles[turn]);
         pods[this.id + 1].apply(solution.thrusts[turn + DEPTH], solution.angles[turn + DEPTH]);
+    }
+    move () {
+        this.moveSearchBot(this.solution);
     }
     solve(time, withSeed = false) {
         let best = new Solution();
@@ -508,7 +506,7 @@ class SearchBot extends Bot {
                 best.thrusts[0] = 650;
         }
         //console.error(`BestID: ${this.id} ${BB(best)}`);
-        //this.getSolutionScore(best);
+        this.getSolutionScore(best);
         //console.error(`id: ${this.id} score: ${best.score}`);
 
         let child = new Solution();
@@ -534,22 +532,23 @@ class SearchBot extends Bot {
         if (solution.score === -1) {
             let scores = [];
             for (let bot of this.opponentBots) {
-                //console.error(`thisId: ${this.id} oppBot: ${bot.id}`);
                 scores.push(this.getBotScore(solution, bot));
+                //console.error(`length: ${scores.length}`);
             }
             solution.score = Math.min(...scores);
         }
-
-       return solution.score;
+        return solution.score;
 
         //return this.getBotScore(solution, this.opponentBots[0]);
 
     }
     getBotScore (solution, opponentBot) {
+        //if (this.id === 0)
+        //    console.error(`this.id: ${this.id} opponentBot.id: ${opponentBot.id} reflex?: ${opponentBot instanceof ReflexBot}`);
         let score = 0;
         while (turn < DEPTH) {
-            this.move(solution);
-            opponentBot.move(solution);
+            this.moveSearchBot(solution);
+            opponentBot.move();
             play();
             if (turn === 0)
                 score += 0.1 * this.evaluate();
@@ -574,8 +573,8 @@ class SearchBot extends Bot {
         score -= myBlocker.dist(oppRunner);
         //score -= myBlocker.dist(cps[oppRunner.ncpId]);
         //score -= myBlocker.diffAngle(oppRunner);
-        if (this.id === 0)
-            console.error(`myRunner: ${myRunner.score()} myBlocker: ${myBlocker.score()} oppRunner: ${oppRunner.score()} oppBlocker: ${oppBlocker.score()}`);
+        //if (this.id === 0)
+        //    console.error(`myRunner: ${myRunner.id} myBlocker: ${myBlocker.id} oppRunner: ${oppRunner.id} oppBlocker: ${oppBlocker.id}`);
 
         return score;
     }
