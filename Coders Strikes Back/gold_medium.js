@@ -50,7 +50,7 @@ function printMove(thrust, angle, pod) {
     let px = Math.round(pod.x + Math.cos(a) * 1000),
         py = Math.round(pod.y + Math.sin(a) * 1000);
 
-    console.error(`podID: ${pod.id} ncp: ${pod.ncpId} angle: ${a} targetX: ${px} targetY: ${py}`);
+    //console.error(`podID: ${pod.id} ncp: ${pod.ncpId} angle: ${a} targetX: ${px} targetY: ${py}`);
 
     if (thrust === -1) {
         console.log(`${px} ${py} ${THRUST_SHIELD} ${THRUST_SHIELD}`);
@@ -451,7 +451,8 @@ class ReflexBot extends Bot {
     constructor(id) {
         super(id);
     }
-    move () {
+    moveReflex() {
+        //console.error(`reflexBot id: ${this.id}`);
         this.moveBot('runner');
         this.moveBot('blocker');
     }
@@ -478,21 +479,24 @@ class ReflexBot extends Bot {
 class SearchBot extends Bot {
     constructor(id) {
         super(id);
-        this.opponentBots = [];
+        //this.opponentBots = [];
     }
     moveSearchBot(solution) {
-        //console.error(`solution: ${solution.thrusts.length} turn: ${turn}`);
         /*
+        console.error(`solution: ${solution.thrusts.length} turn: ${turn}`);
+
         if (this.id === 0) {
             console.error(`id: ${this.id} thrust: ${solution.thrusts[turn]} angle: ${solution.angles[turn]} idx: ${turn}`);
             console.error(`id: ${this.id + 1} thrust: ${solution.thrusts[turn + DEPTH]} angle: ${solution.angles[turn + DEPTH]} idx: ${turn + DEPTH}`);
         }
-         */
+*/
         pods[this.id].apply(solution.thrusts[turn], solution.angles[turn]);
         pods[this.id + 1].apply(solution.thrusts[turn + DEPTH], solution.angles[turn + DEPTH]);
     }
-    move () {
-        this.moveSearchBot(this.solution);
+    moveSearch() {
+        //console.error(`this: ${this.id}`);
+        pods[(this.id + 2)].apply(opp.solution.thrusts[turn], opp.solution.angles[turn]);
+        pods[(this.id + 3)].apply(opp.solution.thrusts[turn + DEPTH], opp.solution.angles[turn + DEPTH]);
     }
     solve(time, withSeed = false) {
         let best = new Solution();
@@ -505,50 +509,39 @@ class SearchBot extends Bot {
             if (r === 0 && pods[this.id].dist(cps[1]) > 4000)
                 best.thrusts[0] = 650;
         }
-        //console.error(`BestID: ${this.id} ${BB(best)}`);
+
         this.getSolutionScore(best);
-        //console.error(`id: ${this.id} score: ${best.score}`);
+
 
         let child = new Solution();
         while (Date.now() - now < time) {
             best.mutateChild(child);
 
-            let solutionScoreChild = this.getSolutionScore(child),
-                solutionScoreBest = this.getSolutionScore(best);
-
-            //if (this.id === 0)
-            //    console.error(`score -> child: ${solutionScoreChild} best: ${solutionScoreBest}`);
-
-            if (solutionScoreChild > solutionScoreBest)
+            if (this.getSolutionScore(child) > this.getSolutionScore(best))
                 best = cloneClass(child);
 
         }
         this.solution = cloneClass(best);
-        //console.error(`id: ${this.id} score: ${this.solution.score}`);
+
 
     }
     getSolutionScore (solution) {
 
-        if (solution.score === -1) {
-            let scores = [];
-            for (let bot of this.opponentBots) {
-                scores.push(this.getBotScore(solution, bot));
-                //console.error(`length: ${scores.length}`);
-            }
-            solution.score = Math.min(...scores);
-        }
+        if (solution.score === -1)
+            solution.score = this.getBotScore(solution);
+
         return solution.score;
-
-        //return this.getBotScore(solution, this.opponentBots[0]);
-
     }
-    getBotScore (solution, opponentBot) {
-        //if (this.id === 0)
-        //    console.error(`this.id: ${this.id} opponentBot.id: ${opponentBot.id} reflex?: ${opponentBot instanceof ReflexBot}`);
+    getBotScore (solution) {
         let score = 0;
         while (turn < DEPTH) {
+
             this.moveSearchBot(solution);
-            opponentBot.move();
+            if (this.id === 2)
+                meReflex.moveReflex();
+            else if (this.id === 0)
+                opp.moveSearchBot(opp.solution);
+
             play();
             if (turn === 0)
                 score += 0.1 * this.evaluate();
@@ -601,9 +594,9 @@ let meReflex = new ReflexBot(0),
     me = new SearchBot(0),
     opp = new SearchBot(2);
 
-// fill searchBots opponents array
-opp.opponentBots.push(meReflex);
-me.opponentBots.push(opp);
+// fill searchBots opponents
+//opp.opponentBot = meReflex;
+//me.opponentBot = opp;
 
 
 while (true) {
@@ -630,7 +623,7 @@ while (true) {
 
     let timeLimit = r ? 142 : 980;
 
-    timeLimit *= 0.3;
+    timeLimit *= 0.5;
 
     if (TEST_REFLEX)
         meReflex.moveAsMain();
