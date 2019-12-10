@@ -623,7 +623,7 @@ while (true) {
 
     let timeLimit = r ? 142 : 980;
 
-    timeLimit *= 0.5;
+    timeLimit *= 0.3;
 
     if (TEST_REFLEX)
         meReflex.moveAsMain();
