@@ -30,7 +30,7 @@ function BB(x) {
     return JSON.stringify(x, null, 2);
 }
 function rnd(n, b = 0) {
-    return Math.round(Math.random() * (b - n) + n);
+    return Math.floor(Math.random() * (b - n) + n);
 }
 function roundAngle(angle) {
     return Math.max(-18, Math.min(18, angle));
@@ -207,8 +207,11 @@ class Pod extends Unit {
         this.angle = -1;
         this.nextAngle = -1;
     }
-    setAngle (angle) {
-        // Can't turn by more than 18° in one turn
+    score () {
+        return this.checked * 50000 - this.dist(cps[this.ncpId]);
+    }
+    apply (thrust, angle) {
+
         angle = roundAngle(angle);
 
         this.angle += angle;
@@ -217,13 +220,6 @@ class Pod extends Unit {
             this.angle = this.angle - 360;
         else if (this.angle < 0)
             this.angle += 360;
-    }
-    score () {
-        return this.checked * 50000 - this.dist(cps[this.ncpId]);
-    }
-    apply (thrust, angle) {
-
-        this.setAngle(angle);
 
         if (thrust === -1)
             this.shield = 4;
@@ -348,13 +344,16 @@ class Pod extends Unit {
         this.vy = vy;
         this.ncpId = ncpId;
 
-        if (is_p2 && this.id > 1)
-            [angle, this.nextAngle] = [this.nextAngle, angle]; // swap the variables
+        if (is_p2 && this.id > 1) {
+            [angle, this.nextAngle] = [this.nextAngle, angle];
+        }
 
         this.angle = angle;
 
         if (r === 0)
             this.angle = 1 + this.diffAngle(cps[1]);
+
+         console.error(`id: ${this.id} x: ${this.x} y: ${this.y} vx: ${this.vx} vy: ${this.vy} angle: ${this.angle} ncpId: ${this.ncpId} SWAP: ${is_p2 && this.id > 1}`);
 
         this.save();
 
@@ -452,7 +451,6 @@ class ReflexBot extends Bot {
         super(id);
     }
     moveReflex() {
-        //console.error(`reflexBot id: ${this.id}`);
         this.moveBot('runner');
         this.moveBot('blocker');
     }
@@ -482,21 +480,8 @@ class SearchBot extends Bot {
         //this.opponentBots = [];
     }
     moveSearchBot(solution) {
-        /*
-        console.error(`solution: ${solution.thrusts.length} turn: ${turn}`);
-
-        if (this.id === 0) {
-            console.error(`id: ${this.id} thrust: ${solution.thrusts[turn]} angle: ${solution.angles[turn]} idx: ${turn}`);
-            console.error(`id: ${this.id + 1} thrust: ${solution.thrusts[turn + DEPTH]} angle: ${solution.angles[turn + DEPTH]} idx: ${turn + DEPTH}`);
-        }
-*/
         pods[this.id].apply(solution.thrusts[turn], solution.angles[turn]);
         pods[this.id + 1].apply(solution.thrusts[turn + DEPTH], solution.angles[turn + DEPTH]);
-    }
-    moveSearch() {
-        //console.error(`this: ${this.id}`);
-        pods[(this.id + 2)].apply(opp.solution.thrusts[turn], opp.solution.angles[turn]);
-        pods[(this.id + 3)].apply(opp.solution.thrusts[turn + DEPTH], opp.solution.angles[turn + DEPTH]);
     }
     solve(time, withSeed = false) {
         let best = new Solution();
@@ -512,7 +497,6 @@ class SearchBot extends Bot {
 
         this.getSolutionScore(best);
 
-
         let child = new Solution();
         while (Date.now() - now < time) {
             best.mutateChild(child);
@@ -522,8 +506,6 @@ class SearchBot extends Bot {
 
         }
         this.solution = cloneClass(best);
-
-
     }
     getSolutionScore (solution) {
 
@@ -537,6 +519,7 @@ class SearchBot extends Bot {
         while (turn < DEPTH) {
 
             this.moveSearchBot(solution);
+
             if (this.id === 2)
                 meReflex.moveReflex();
             else if (this.id === 0)
@@ -613,8 +596,12 @@ while (true) {
             angle = parseInt(inputs[4]),
             ncpId = parseInt(inputs[5]);
 
-        if (r === 0 && i > 1 && angle > -1)
+        if (r === 0 && i > 1 && angle > -1) {
+            console.error(`ISP2!!`);
             is_p2 = true;
+        }
+
+        console.error(`id: ${i} x: ${x} y: ${y} vx: ${vx} vy: ${vy} angle: ${angle} ncpId: ${ncpId} r: ${r}`);
 
         pods[i].update(x, y, vx, vy, angle, ncpId);
     }
