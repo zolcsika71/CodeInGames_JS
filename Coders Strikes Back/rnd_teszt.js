@@ -1,5 +1,5 @@
 function rnd(n, b = 0) {
-    return Math.floor(Math.random() * (b - n) + n);
+    return Math.round(Math.random() * (b - n) + n);
 }
 
 function rnd1(a, b = 0) {
@@ -17,12 +17,7 @@ const
 //console.log(roundAngle(3));
 
 
-//for (let i = 0; i < 100; i++)
-//    console.log(roundAngle(rnd(-40, 40)));
+for (let i = 0; i < 100; i++)
+    console.log(rnd(-10, 10));
 
-let a = 1,
-    b = 2;
 
-[a, b] = [b, a];
-
-console.log(a, b);

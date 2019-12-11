@@ -30,27 +30,30 @@ function BB(x) {
     return JSON.stringify(x, null, 2);
 }
 function rnd(n, b = 0) {
-    return Math.floor(Math.random() * (b - n) + n);
+    return Math.round(Math.random() * (b - n) + n);
 }
 function roundAngle(angle) {
-    return Math.max(-18, Math.min(18, angle));
+    return Math.round(Math.max(-18, Math.min(18, angle)));
 }
 function cloneClass(classToClone) {
     return Object.assign(Object.create(Object.getPrototypeOf(classToClone)), classToClone);
 }
 function printMove(thrust, angle, pod) {
+
+    console.error(`pod.angle: ${pod.angle} inputAngle: ${angle} roundedAngle: ${roundAngle(angle)}`);
+
     let a = pod.angle + roundAngle(angle);
     if (a >= 360)
         a = a - 360;
     else if (a < 0)
         a += 360;
 
-    a = a * Math.PI / 180.0;
+    let ra = a * Math.PI / 180.0;
 
-    let px = Math.round(pod.x + Math.cos(a) * 1000),
-        py = Math.round(pod.y + Math.sin(a) * 1000);
+    let px = Math.round(pod.x + Math.cos(ra) * 1000),
+        py = Math.round(pod.y + Math.sin(ra) * 1000);
 
-    //console.error(`podID: ${pod.id} ncp: ${pod.ncpId} angle: ${a} targetX: ${px} targetY: ${py}`);
+    console.error(`podID: ${pod.id} ncp: ${pod.ncpId} angle: ${a} targetX: ${px} targetY: ${py}`);
 
     if (thrust === -1) {
         console.log(`${px} ${py} ${THRUST_SHIELD} ${THRUST_SHIELD}`);
@@ -353,7 +356,7 @@ class Pod extends Unit {
         if (r === 0)
             this.angle = 1 + this.diffAngle(cps[1]);
 
-         console.error(`id: ${this.id} x: ${this.x} y: ${this.y} vx: ${this.vx} vy: ${this.vy} angle: ${this.angle} ncpId: ${this.ncpId} SWAP: ${is_p2 && this.id > 1}`);
+        //console.error(`id: ${this.id} x: ${this.x} y: ${this.y} vx: ${this.vx} vy: ${this.vy} angle: ${this.angle} ncpId: ${this.ncpId} SWAP: ${is_p2 && this.id > 1}`);
 
         this.save();
 
@@ -401,7 +404,7 @@ class Solution {
         this.score = -1;
     }
     mutate () {
-        this.randomize(rnd(2 * DEPTH));
+        this.randomize(rnd(2 * DEPTH - 1));
     }
     mutateChild (child) {
         child.angles = [...this.angles];
@@ -410,7 +413,7 @@ class Solution {
         child.score = -1;
     }
     randomize (idx, full = false) {
-        let r = rnd(2);
+        let r = rnd(1);
         if (full || r === 0)
             this.angles[idx] = roundAngle(rnd(-40, 40));
 
@@ -427,7 +430,7 @@ class Solution {
             this.randomize(i, true);
     }
 }
-class Bot {
+class Bot  {
     constructor(id) {
         this.id = id;
     }
@@ -471,7 +474,7 @@ class ReflexBot extends Bot {
         if (forOutput)
             printMove(thrust, rawAngle, pod);
         else
-            pod.apply(thrust, rawAngle);
+            pod.apply(thrust, roundAngle(rawAngle));
     }
 }
 class SearchBot extends Bot {
@@ -584,6 +587,8 @@ let meReflex = new ReflexBot(0),
 
 while (true) {
 
+    //console.error(`cp_ct: ${cp_ct} laps: ${laps}`);
+
     r++;
 
     for (let i = 0; i < 4; i++) {
@@ -601,7 +606,7 @@ while (true) {
             is_p2 = true;
         }
 
-        console.error(`id: ${i} x: ${x} y: ${y} vx: ${vx} vy: ${vy} angle: ${angle} ncpId: ${ncpId} r: ${r}`);
+        //console.error(`id: ${i} x: ${x} y: ${y} vx: ${vx} vy: ${vy} angle: ${angle} ncpId: ${ncpId} r: ${r}`);
 
         pods[i].update(x, y, vx, vy, angle, ncpId);
     }
@@ -620,6 +625,7 @@ while (true) {
     if (!TEST_REFLEX) {
         opp.solve(timeLimit * 0.15);
         me.solve(timeLimit, r > 0);
+        //console.error(`oppScore ${opp.solution.score} meScore: ${me.solution.score}`);
     }
 
     console.error(`elapsed time: ${Date.now() - now}`);
