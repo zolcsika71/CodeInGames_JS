@@ -10,10 +10,11 @@ const
     THRUST_SHIELD = 'SHIELD',
     E = 0.00001;
 
-let r = -1,
+let rand = Alea(),
+    r = -1,
     turn = 0,
     sols_ct = 0,
-    is_p2 = false,
+    //is_p2 = false,
     laps = parseInt(readline()),
     cp_ct = parseInt(readline()),
     pods = [...Array(4)],
@@ -29,8 +30,81 @@ let r = -1,
 function BB(x) {
     return JSON.stringify(x, null, 2);
 }
+function Mash() {
+    let n = 0xefc8249d,
+        mash = function (data) {
+            data = String(data);
+            for (let i = 0; i < data.length; i++) {
+                n += data.charCodeAt(i);
+                let h = 0.02519603282416938 * n;
+                n = h >>> 0;
+                h -= n;
+                h *= n;
+                n = h >>> 0;
+                h -= n;
+                n += h * 0x100000000; // 2^32
+            }
+            return (n >>> 0) * 2.3283064365386963e-10; // 2^-32
+        };
+
+    return mash;
+}
+function Alea() {
+    return (function (args) {
+        // Johannes Baagøe <baagoe@baagoe.com>, 2010
+        let s0 = 0,
+            s1 = 0,
+            s2 = 0,
+            c = 1;
+
+        if (args.length === 0)
+            args = [+new Date];
+
+        let mash = Mash();
+
+        s0 = mash(' ');
+        s1 = mash(' ');
+        s2 = mash(' ');
+
+        for (let i = 0; i < args.length; i++) {
+            s0 -= mash(args[i]);
+
+            if (s0 < 0)
+                s0 += 1;
+
+            s1 -= mash(args[i]);
+
+            if (s1 < 0)
+                s1 += 1;
+
+            s2 -= mash(args[i]);
+
+            if (s2 < 0)
+                s2 += 1;
+        }
+        mash = null;
+
+        let random = function () {
+            let t = 2091639 * s0 + c * 2.3283064365386963e-10; // 2^-32
+            s0 = s1;
+            s1 = s2;
+            return s2 = t - (c = t | 0);
+        };
+        random.uint32 = function () {
+            return random() * 0x100000000; // 2^32
+        };
+        random.fract53 = function () {
+            return random() +
+                (random() * 0x200000 | 0) * 1.1102230246251565e-16; // 2^-53
+        };
+        random.version = 'Alea 0.9';
+        random.args = args;
+        return random;
+
+    } (Array.prototype.slice.call(arguments)));
+}
 function rnd(n, b = 0) {
-    return Math.round(Math.random() * (b - n) + n);
+    return Math.round(rand() * (b - n) + n);
 }
 function roundAngle(angle) {
     return Math.round(Math.max(-18, Math.min(18, angle)));
@@ -40,7 +114,7 @@ function cloneClass(classToClone) {
 }
 function printMove(thrust, angle, pod) {
 
-    console.error(`pod.angle: ${pod.angle} inputAngle: ${angle} roundedAngle: ${roundAngle(angle)}`);
+    //console.error(`pod.angle: ${pod.angle} inputAngle: ${angle} roundedAngle: ${roundAngle(angle)}`);
 
     let a = pod.angle + roundAngle(angle);
     if (a >= 360)
@@ -53,7 +127,7 @@ function printMove(thrust, angle, pod) {
     let px = Math.round(pod.x + Math.cos(ra) * 1000),
         py = Math.round(pod.y + Math.sin(ra) * 1000);
 
-    console.error(`podID: ${pod.id} ncp: ${pod.ncpId} angle: ${a} targetX: ${px} targetY: ${py}`);
+    //console.error(`podID: ${pod.id} ncp: ${pod.ncpId} angle: ${a} targetX: ${px} targetY: ${py}`);
 
     if (thrust === -1) {
         console.log(`${px} ${py} ${THRUST_SHIELD} ${THRUST_SHIELD}`);
@@ -347,16 +421,16 @@ class Pod extends Unit {
         this.vy = vy;
         this.ncpId = ncpId;
 
-        if (is_p2 && this.id > 1) {
-            [angle, this.nextAngle] = [this.nextAngle, angle];
-        }
+        //if (is_p2 && this.id > 1)
+        //    [angle, this.nextAngle] = [this.nextAngle, angle];
+
 
         this.angle = angle;
 
         if (r === 0)
             this.angle = 1 + this.diffAngle(cps[1]);
 
-        //console.error(`id: ${this.id} x: ${this.x} y: ${this.y} vx: ${this.vx} vy: ${this.vy} angle: ${this.angle} ncpId: ${this.ncpId} SWAP: ${is_p2 && this.id > 1}`);
+        //console.error(`id: ${this.id} x: ${this.x} y: ${this.y} vx: ${this.vx} vy: ${this.vy} angle: ${this.angle} ncpId: ${this.ncpId}`);
 
         this.save();
 
@@ -601,10 +675,9 @@ while (true) {
             angle = parseInt(inputs[4]),
             ncpId = parseInt(inputs[5]);
 
-        if (r === 0 && i > 1 && angle > -1) {
-            console.error(`ISP2!!`);
-            is_p2 = true;
-        }
+        //if (r === 0 && i > 1 && angle > -1)
+        //    is_p2 = true;
+
 
         //console.error(`id: ${i} x: ${x} y: ${y} vx: ${vx} vy: ${vy} angle: ${angle} ncpId: ${ncpId} r: ${r}`);
 
