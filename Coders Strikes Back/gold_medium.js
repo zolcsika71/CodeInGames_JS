@@ -613,6 +613,8 @@ class SearchBot extends Bot {
         if (r > 0)
             sols_ct++;
 
+        console.error(`score: ${score}`);
+
         return score;
     }
     evaluate () {
@@ -626,8 +628,8 @@ class SearchBot extends Bot {
         score -= myBlocker.dist(oppRunner);
         //score -= myBlocker.dist(cps[oppRunner.ncpId]);
         //score -= myBlocker.diffAngle(oppRunner);
-        //if (this.id === 0)
-        //    console.error(`myRunner: ${myRunner.id} myBlocker: ${myBlocker.id} oppRunner: ${oppRunner.id} oppBlocker: ${oppBlocker.id}`);
+        //if (this.id === 2)
+        //    console.error(`myRunner: ${myRunner.id} myBlocker: ${myBlocker.id} oppRunner: ${oppRunner.id} oppBlocker: ${oppBlocker.id} score: ${score}`);
 
         return score;
     }
