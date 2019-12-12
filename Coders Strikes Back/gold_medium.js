@@ -575,7 +575,14 @@ class SearchBot extends Bot {
         this.getSolutionScore(best);
 
         let child = new Solution();
+
+        //if (this.id === 0)
+        //    console.error(`time remains: ${Date.now() - now}`);
+
+        let counter = 0;
+
         while (Date.now() - now < time) {
+            counter++;
             best.mutateChild(child);
 
             if (this.getSolutionScore(child) > this.getSolutionScore(best))
@@ -583,6 +590,8 @@ class SearchBot extends Bot {
 
         }
         this.solution = cloneClass(best);
+
+        //console.error(`turn: ${r} id: ${this.id} counter: ${counter}`);
     }
     getSolutionScore (solution) {
 
@@ -612,8 +621,6 @@ class SearchBot extends Bot {
 
         if (r > 0)
             sols_ct++;
-
-        console.error(`score: ${score}`);
 
         return score;
     }
@@ -688,9 +695,9 @@ while (true) {
 
     now = Date.now();
 
-    let timeLimit = r ? 142 : 980;
+    let timeLimit = r ? 75 : 1000;
 
-    timeLimit *= 0.3;
+    //timeLimit *= 0.5;
 
     if (TEST_REFLEX)
         meReflex.moveAsMain();
@@ -698,7 +705,7 @@ while (true) {
     //console.error(`meID: ${me.id} oppID: ${opp.id}`)
 
     if (!TEST_REFLEX) {
-        opp.solve(timeLimit * 0.15);
+        opp.solve(timeLimit, r > 0);
         me.solve(timeLimit, r > 0);
         //console.error(`oppScore ${opp.solution.score} meScore: ${me.solution.score}`);
     }
@@ -709,8 +716,8 @@ while (true) {
         console.error(`Avg. iterations: ${sols_ct / r} Avg. sims: ${sols_ct * DEPTH / r}`);
 
     if (!TEST_REFLEX) {
-        printMove(me.solution.thrusts[0], me.solution.angles[0], pods[0]);
-        printMove(me.solution.thrusts[DEPTH], me.solution.angles[DEPTH], pods[1]);
+        printMove(opp.solution.thrusts[0], opp.solution.angles[0], pods[0]);
+        printMove(opp.solution.thrusts[DEPTH], opp.solution.angles[DEPTH], pods[1]);
     }
 
 }
