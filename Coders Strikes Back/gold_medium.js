@@ -199,7 +199,7 @@ class Point {
         let x = this.x - point.x,
             y = this.y - point.y;
 
-        return Math.pow(x, 2) + Math.pow(y, 2);
+        return x * x + y * y;
     }
     dist (point) {
         return Math.sqrt(this.distSquare(point));
@@ -209,7 +209,7 @@ class Point {
             db = pointA.x - pointB.x,
             c1 = da * pointA.x + db * pointA.y,
             c2 = -db * this.x + da * this.y,
-            det = Math.pow(da, 2) + Math.pow(db, 2),
+            det = da * da + db * db,
             cx,
             cy;
         if (det !== 0) { // point on the line
@@ -241,14 +241,14 @@ class Unit extends Point {
             dy = this.y - unit.y,
             dvx = this.vx - unit.vx,
             dvy = this.vy - unit.vy,
-            a = Math.pow(dvx, 2) + Math.pow(dvy, 2),
+            a = dvx * dvx + dvy * dvy,
             sr2 = this.type === 'CP' ? 357604 : 640000;
 
         if (a < E)
             return -1;
 
         let b = -2 * (dx * dvx + dy * dvy),
-            delta = Math.pow(b, 2) - 4 * a * (Math.pow(dx, 2) + Math.pow(dy, 2) - sr2);
+            delta = b * b - 4 * a * (dx * dx + dy * dy - sr2);
 
         if (delta < 0)
             return -1;
@@ -338,7 +338,7 @@ class Pod extends Unit {
     bounce (unit) {
         if (unit.type === 'CP') {
             this.checked++;
-            this.timeout = this.podPartner.timeout = 100;
+            this.timeout = pods[this.podPartner].timeout = 100;
             this.ncpId = (this.ncpId + 1) % cp_ct;
             return;
         }
@@ -351,13 +351,13 @@ class Pod extends Unit {
             mCoEff = (m1 + m2) / (m1 * m2),
             nx = this.x - unit.x,
             ny = this.y - unit.y,
-            dst2 = Math.pow(nx, 2) + Math.pow(ny, 2),
+            dst2 = nx * nx + ny * ny,
             dvx = this.vx - unit.vx,
             dvy = this.vy - unit.vy,
             impactVector = nx * dvx + ny * dvy, // fx and fy are the components of the impact vector. impactVector is just there for optimisation purposes
             fx = (nx * impactVector) / (dst2 * mCoEff),
             fy = (ny * impactVector) / (dst2 * mCoEff),
-            impulse = Math.sqrt(Math.pow(fx, 2) + Math.pow(fy, 2));
+            impulse = Math.sqrt(fx * fx + fy * fy);
 
         // We apply the impact vector once
         this.vx -= fx / m1;
@@ -410,7 +410,7 @@ class Pod extends Unit {
             this.shield--;
 
         if (ncpId !== this.ncpId) {
-            this.timeout = this.podPartner.timeout = 100;
+            this.timeout = pods[this.podPartner].timeout = 100;
             this.checked++;
         } else
             this.timeout--;
@@ -514,9 +514,7 @@ class Bot  {
         return this.getScore(pod0, pod1);
     }
     blocker (pod0 = pods[this.id], pod1 = pods[this.id + 1]) {
-        //console.error(`blocker -> ${this.id}`;
-        //console.error(`${pod0.podPartner.id} pod0.partner: ${pod0.podPartner.score()} ${pod1.podPartner.id} pod1.partner: ${pod1.podPartner.score()}`);
-        return this.getScore(pod0.podPartner, pod1.podPartner);
+        return this.getScore(pods[pod0.podPartner], pods[pod1.podPartner]);
     }
     getScore (pod0, pod1) {
         //console.error(`${pod0.id} pod0: ${pod0.score()} ${pod1.id} pod1: ${pod1.score()}`);
@@ -590,8 +588,7 @@ class SearchBot extends Bot {
 
         }
         this.solution = cloneClass(best);
-
-        //console.error(`turn: ${r} id: ${this.id} counter: ${counter}`);
+        console.error(`turn: ${r} id: ${this.id} counter: ${counter} time: ${Date.now() - now}`);
     }
     getSolutionScore (solution) {
 
@@ -651,13 +648,10 @@ for (let i = 0; i < cp_ct; i++) {
 }
 
 // create pod classes array
-for (let i = 0; i < 4; i++)
+for (let i = 0; i < 4; i++) {
     pods[i] = new Pod(i);
-
-// fill podPartners
-for (let i = 0; i < 4; i++)
-    pods[i].podPartner = pods[podPartner[i]];
-
+    pods[i].podPartner = podPartner[i];
+}
 
 let meReflex = new ReflexBot(0),
     me = new SearchBot(0),
@@ -702,10 +696,8 @@ while (true) {
     if (TEST_REFLEX)
         meReflex.moveAsMain();
 
-    //console.error(`meID: ${me.id} oppID: ${opp.id}`)
-
     if (!TEST_REFLEX) {
-        opp.solve(timeLimit, r > 0);
+        opp.solve(timeLimit * 0.15);
         me.solve(timeLimit, r > 0);
         //console.error(`oppScore ${opp.solution.score} meScore: ${me.solution.score}`);
     }
@@ -716,8 +708,8 @@ while (true) {
         console.error(`Avg. iterations: ${sols_ct / r} Avg. sims: ${sols_ct * DEPTH / r}`);
 
     if (!TEST_REFLEX) {
-        printMove(opp.solution.thrusts[0], opp.solution.angles[0], pods[0]);
-        printMove(opp.solution.thrusts[DEPTH], opp.solution.angles[DEPTH], pods[1]);
+        printMove(me.solution.thrusts[0], me.solution.angles[0], pods[0]);
+        printMove(me.solution.thrusts[DEPTH], me.solution.angles[DEPTH], pods[1]);
     }
 
 }
