@@ -138,6 +138,7 @@ function printMove(thrust, angle, pod) {
     } else
         console.log(`${px} ${py} ${thrust} ${thrust}`);
 }
+
 function play() {
     let t = 0;
     while (t < 1) {
@@ -176,6 +177,68 @@ function play() {
             pods[i].end();
     }
 }
+
+/*
+function play() { //cached
+
+    let t = 0,
+        cpCollision = false,
+        tempCollision = new Collision(null, null, -1);
+
+    while (t < 1) {
+
+
+        let firstCollision = new Collision(null, null, -1);
+
+        for (let i = 0; i < 4; i++) {
+
+            if (cpCollision) {
+                firstCollision = cloneClass(tempCollision);
+                cpCollision = false;
+            } else {
+
+                for (let j = i + 1; j < 4; j++) {
+
+                    let collisionTime = pods[i].collisionTime(pods[j]);
+
+                    if (collisionTime > -1 && collisionTime + t < 1 && (firstCollision.time === -1 || collisionTime < firstCollision.time)) {
+                        firstCollision.a = pods[i];
+                        firstCollision.b = pods[j];
+                        firstCollision.time = collisionTime
+                    }
+                }
+            }
+
+            let collisionTime = pods[i].collisionTime(cps[pods[i].ncpId]);
+
+            if (collisionTime > -1 && collisionTime + t < 1 && (firstCollision.time === -1 || collisionTime < firstCollision.time)) {
+
+                tempCollision = cloneClass(firstCollision);
+                cpCollision = true;
+                firstCollision.a = pods[i];
+                firstCollision.b = cps[pods[i].ncpId];
+                firstCollision.time = collisionTime;
+            }
+
+        }
+        if (firstCollision.time === -1) {
+            for (let i = 0; i < 4; i++)
+                pods[i].move(1 - t);
+
+            t = 1;
+        } else {
+            for (let i = 0; i < 4; i++)
+                pods[i].move(firstCollision.time);
+
+            firstCollision.a.bounce(firstCollision.b);
+            t += firstCollision.time;
+        }
+        for (let i = 0; i < 4; i++)
+            pods[i].end();
+    }
+}
+*/
+
 function load() {
     for (let pod of pods)
         pod.load();
@@ -486,8 +549,22 @@ class Solution {
         child.mutate();
         child.score = -1;
     }
+    reflex (idx, full) {
+        let r = rnd(1);
+
+        if (full || r === 0)
+            this.angles[idx] = roundAngle(rnd(-40, 40));
+    }
     randomize (idx, full = false) {
         let r = rnd(1);
+        if (r === 1)
+            this.randomized(idx, full);
+        else
+            this.reflex(idx, full)
+    }
+    randomized (idx, full = false) {
+        let r = rnd(1);
+
         if (full || r === 0)
             this.angles[idx] = roundAngle(rnd(-40, 40));
 
@@ -530,10 +607,14 @@ class ReflexBot extends Bot {
         this.moveBot('blocker');
     }
     moveAsMain () {
-        this.moveBot('runner', true);
-        this.moveBot('blocker', true);
+        this.moveBot('runner', 1);
+        this.moveBot('blocker',  1);
     }
-    moveBot (type, forOutput = false,) {
+    moveAsReturnThrust () {
+        this.moveBot('runner', 2);
+        this.moveBot('blocker',  2);
+    }
+    moveBot (type, forOutput = 0) {
 
         let pod = type === 'runner' ? forOutput ? pods[0] : this.runner() : forOutput ? this.blocker() : pods[1],
             cp = cps[pod.ncpId],
@@ -543,8 +624,12 @@ class ReflexBot extends Bot {
 
         //console.error(`err: type: ${type} runner: ${this.runner().id} blocker ${this.blocker().id} pod: ${pod.id}`);
 
-        if (forOutput)
+        if (forOutput === 1)
             printMove(thrust, rawAngle, pod);
+        else if (forOutput === 2)
+            return thrust;
+        else if (forOutput === 3)
+            return rawAngle;
         else
             pod.apply(thrust, roundAngle(rawAngle));
     }
@@ -577,10 +662,10 @@ class SearchBot extends Bot {
         //if (this.id === 0)
         //    console.error(`time remains: ${Date.now() - now}`);
 
-        let counter = 0;
+        //let counter = 0;
 
         while (Date.now() - now < time) {
-            counter++;
+            //counter++;
             best.mutateChild(child);
 
             if (this.getSolutionScore(child) > this.getSolutionScore(best))
@@ -588,7 +673,7 @@ class SearchBot extends Bot {
 
         }
         this.solution = cloneClass(best);
-        console.error(`turn: ${r} id: ${this.id} counter: ${counter} time: ${Date.now() - now}`);
+        //console.error(`turn: ${r} id: ${this.id} counter: ${counter} time: ${Date.now() - now}`);
     }
     getSolutionScore (solution) {
 
@@ -606,7 +691,8 @@ class SearchBot extends Bot {
             if (this.id === 2)
                 meReflex.moveReflex();
             else if (this.id === 0)
-                opp.moveSearchBot(opp.solution);
+                meReflex.moveReflex();
+                //opp.moveSearchBot(opp.solution);
 
             play();
             if (turn === 0)
@@ -616,8 +702,7 @@ class SearchBot extends Bot {
         score += 0.9 * this.evaluate();
         load();
 
-        if (r > 0)
-            sols_ct++;
+        sols_ct++;
 
         return score;
     }
@@ -626,12 +711,20 @@ class SearchBot extends Bot {
             myBlocker = this.blocker(pods[this.id], pods[this.id + 1]),
             oppRunner = this.runner(pods[(this.id + 2) % 4], pods[(this.id + 3) % 4]),
             oppBlocker = this.blocker(pods[(this.id + 2) % 4], pods[(this.id + 3) % 4]),
+            score;
+
+        if (myRunner.timeout === 100 || myBlocker.timeout === 100)
+            score = -Infinity;
+        else if (oppRunner.timeout === 100 || oppBlocker.timeout === 100)
+            score = Infinity;
+        else {
             score = (myRunner.score() - oppRunner.score());
+            score += myBlocker.score() - oppBlocker.score();
+            //score -= myBlocker.dist(oppRunner);
+            //score -= myBlocker.dist(cps[oppRunner.ncpId]);
+            //score -= myBlocker.diffAngle(oppRunner);
+        }
 
-
-        score -= myBlocker.dist(oppRunner);
-        //score -= myBlocker.dist(cps[oppRunner.ncpId]);
-        //score -= myBlocker.diffAngle(oppRunner);
         //if (this.id === 2)
         //    console.error(`myRunner: ${myRunner.id} myBlocker: ${myBlocker.id} oppRunner: ${oppRunner.id} oppBlocker: ${oppBlocker.id} score: ${score}`);
 
@@ -689,7 +782,7 @@ while (true) {
 
     now = Date.now();
 
-    let timeLimit = r ? 75 : 1000;
+    let timeLimit = r ? 73 : 990;
 
     //timeLimit *= 0.5;
 
@@ -697,15 +790,15 @@ while (true) {
         meReflex.moveAsMain();
 
     if (!TEST_REFLEX) {
-        opp.solve(timeLimit * 0.15);
+        //opp.solve(timeLimit * 0.40);
         me.solve(timeLimit, r > 0);
         //console.error(`oppScore ${opp.solution.score} meScore: ${me.solution.score}`);
     }
 
     console.error(`elapsed time: ${Date.now() - now}`);
 
-    if (r > 0)
-        console.error(`Avg. iterations: ${sols_ct / r} Avg. sims: ${sols_ct * DEPTH / r}`);
+
+    console.error(`Avg. iterations: ${r === 0 ? sols_ct : sols_ct / r} Avg. sims: ${r === 0 ? sols_ct * DEPTH : sols_ct * DEPTH / r}`);
 
     if (!TEST_REFLEX) {
         printMove(me.solution.thrusts[0], me.solution.angles[0], pods[0]);
