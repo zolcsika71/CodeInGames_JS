@@ -732,7 +732,7 @@ class SearchBot extends Bot {
             score = Infinity;
         else {
             score = (myRunner.score() - oppRunner.score());
-            score += myBlocker.score() - oppBlocker.score();
+            //score += myBlocker.score() - oppBlocker.score();
             //score -= myBlocker.dist(oppRunner);
             //score -= myBlocker.dist(cps[oppRunner.ncpId]);
             //score -= myBlocker.diffAngle(oppRunner);
