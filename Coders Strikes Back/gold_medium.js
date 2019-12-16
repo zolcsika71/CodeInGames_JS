@@ -8,6 +8,7 @@ const
     DISABLED_ANGLE = 90,
     THRUST_BOOST = 'BOOST',
     THRUST_SHIELD = 'SHIELD',
+    MAGNITUDE_STEP = 0.00015,
     E = 0.00001;
 
 let rand = Alea(),
@@ -20,6 +21,7 @@ let rand = Alea(),
     pods = [...Array(4)],
     cps = [...Array(cp_ct)],
     now,
+    magnitude,
     podPartner = {
         0: 1,
         1: 0,
@@ -236,8 +238,6 @@ function play() { //cached
             pods[i].end();
     }
 }
-
-
 function load() {
     for (let pod of pods)
         pod.load();
@@ -527,76 +527,80 @@ class Solution {
         this.score = -1;
         this.thrusts = [...Array(DEPTH * 2)];
         this.angles = [...Array(DEPTH * 2)];
+        this.randomed = false;
     }
-    shift () {
+    shift (magnitude) {
         for (let i = 1; i < DEPTH; i++) {
             this.angles[i - 1] = this.angles[i];
             this.thrusts[i - 1] = this.thrusts[i];
             this.angles[i - 1 + DEPTH] = this.angles[i + DEPTH];
             this.thrusts[i - 1 + DEPTH] = this.thrusts[i + DEPTH];
         }
-        this.randomize(DEPTH - 1, true);
-        this.randomize(2 * DEPTH - 1, true);
+        this.randomize(DEPTH - 1, magnitude, true);
+        this.randomize(2 * DEPTH - 1, magnitude, true);
         this.score = -1;
     }
-    mutate () {
-        this.randomize(rnd(2 * DEPTH - 1));
+    mutate (magnitude) {
+        this.randomize(rnd(2 * DEPTH - 1), magnitude);
     }
-    mutateChild (child) {
+    mutateChild (child, magnitude) {
         child.angles = [...this.angles];
         child.thrusts = [...this.thrusts];
-        child.mutate();
+        child.mutate(magnitude);
         child.score = -1;
     }
-    reflex (idx, full) {
-
-        let r;
-
-        if (!full)
-            r = rnd(1);
-
-        if (full || r === 0) {
-            if (idx <= 5)
-                this.angles[idx] = meTrainer.moveBot('runner', 3);
-            else
-                this.angles[idx] = meTrainer.moveBot('blocker', 3);
-        }
-        if (full || r === 1)
-            if (idx > 5)
-                this.thrusts[idx] = meTrainer.moveBot('runner', 2);
-        else
-                this.thrusts[idx] = meTrainer.moveBot('blocker', 2);
-    }
-    randomize (idx, full = false) {
+    randomize (idx, magnitude, full = false) {
 
         let r = rnd(1);
 
         if (r < 1)
-            this.randomized(idx, full);
+            this.randomized(idx, magnitude, full);
         else
             this.reflex(idx, full);
 
         this.score = -1;
     }
-    randomized (idx, full = false) {
-        let r;
+    reflex (idx, full) {
+
+        let rand;
 
         if (!full)
-            r = rnd(1);
+            rand = rnd(1);
 
-        if (full || r === 0)
-            this.angles[idx] = roundAngle(rnd(-40, 40));
+        if (full || rand === 0) {
+            if (idx <= 5)
+                this.angles[idx] = meTrainer.moveBot('runner', 3);
+            else
+                this.angles[idx] = meTrainer.moveBot('blocker', 3);
+        }
+        if (full || rand === 1)
+            if (idx > 5)
+                this.thrusts[idx] = meTrainer.moveBot('runner', 2);
+        else
+                this.thrusts[idx] = meTrainer.moveBot('blocker', 2);
+    }
+    randomized (idx, magnitude, full = false) {
 
-        if (full || r === 1) {
+        this.randomed = true;
+
+        let rand;
+
+        if (!full)
+            rand = rnd(1);
+
+        if (full || rand === 0)
+           this.angles[idx] = roundAngle(rnd(-36 * magnitude, 36 * magnitude));
+
+        if (full || rand === 1) {
             if (rnd(100) >= SHIELD_PROB)
-                this.thrusts[idx] = Math.max(0, Math.min(MAX_THRUST, rnd(-0.5 * MAX_THRUST, 2 * MAX_THRUST)));
+                this.thrusts[idx] = Math.max(0, Math.min(MAX_THRUST, rnd(-0.5 * MAX_THRUST * magnitude, 2 * MAX_THRUST * magnitude)));
             else
                 this.thrusts[idx] = -1;
         }
     }
-    runRandomize () {
+    runRandomize (magnitude) {
         for (let i = 0; i < 2 * DEPTH; i++)
-            this.randomize(i, true);
+            this.randomize(i, magnitude, true);
     }
 }
 class Bot  {
@@ -651,7 +655,7 @@ class ReflexBot extends Bot {
 class SearchBot extends Bot {
     constructor(id) {
         super(id);
-        //this.opponentBots = [];
+        this.magnitude = 1;
     }
     moveSearchBot(solution) {
         pods[this.id].apply(solution.thrusts[turn], solution.angles[turn]);
@@ -662,9 +666,9 @@ class SearchBot extends Bot {
 
         if (withSeed) {
             best = cloneClass(this.solution);
-            best.shift();
+            best.shift(this.magnitude);
         } else {
-            best.runRandomize();
+            best.runRandomize(this.magnitude);
             if (r === 0 && pods[this.id].dist(cps[1]) > 4000)
                 best.thrusts[0] = 650;
         }
@@ -673,21 +677,22 @@ class SearchBot extends Bot {
 
         let child = new Solution();
 
-        //if (this.id === 0)
-        //    console.error(`time remains: ${Date.now() - now}`);
-
-        //let counter = 0;
-
         while (Date.now() - now < time) {
-            //counter++;
-            best.mutateChild(child);
+            best.mutateChild(child, this.magnitude);
+            if (child.randomed) {
+                this.magnitude -= MAGNITUDE_STEP;
+                if (this.magnitude < MAGNITUDE_STEP)
+                    this.magnitude = MAGNITUDE_STEP;
+                child.randomed = false;
+            }
 
             if (this.getSolutionScore(child) > this.getSolutionScore(best))
                 best = cloneClass(child);
 
         }
         this.solution = cloneClass(best);
-        //console.error(`turn: ${r} id: ${this.id} counter: ${counter} time: ${Date.now() - now}`);
+        console.error(`magnitude: ${this.magnitude}`);
+        this.magnitude = 1;
     }
     getSolutionScore (solution) {
 
@@ -733,7 +738,7 @@ class SearchBot extends Bot {
         else {
             score = (myRunner.score() - oppRunner.score());
             //score += myBlocker.score() - oppBlocker.score();
-            //score -= myBlocker.dist(oppRunner);
+            score -= myBlocker.dist(oppRunner);
             //score -= myBlocker.dist(cps[oppRunner.ncpId]);
             //score -= myBlocker.diffAngle(oppRunner);
         }
@@ -809,7 +814,7 @@ while (true) {
         //console.error(`oppScore ${opp.solution.score} meScore: ${me.solution.score}`);
     }
 
-    console.error(`elapsed time: ${Date.now() - now}`);
+    console.error(`elapsed time: ${Date.now() - now} score: ${me.solution.score}`);
 
 
     console.error(`Avg. iterations: ${r === 0 ? sols_ct : sols_ct / r} Avg. sims: ${r === 0 ? sols_ct * DEPTH : sols_ct * DEPTH / r}`);
