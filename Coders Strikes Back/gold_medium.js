@@ -138,7 +138,7 @@ function printMove(thrust, angle, pod) {
     } else
         console.log(`${px} ${py} ${thrust} ${thrust}`);
 }
-
+/*
 function play() {
     let t = 0;
     while (t < 1) {
@@ -154,7 +154,7 @@ function play() {
                 }
             }
 
-            // TODO this is wasteful, get rid of it
+
             let collisionTime = pods[i].collisionTime(cps[pods[i].ncpId]);
             if (collisionTime > -1 && collisionTime + t < 1 && (firstCollision.time === -1 || collisionTime < firstCollision.time)) {
                 firstCollision.a = pods[i];
@@ -177,8 +177,7 @@ function play() {
             pods[i].end();
     }
 }
-
-/*
+*/
 function play() { //cached
 
     let t = 0,
@@ -237,7 +236,7 @@ function play() { //cached
             pods[i].end();
     }
 }
-*/
+
 
 function load() {
     for (let pod of pods)
@@ -550,20 +549,40 @@ class Solution {
         child.score = -1;
     }
     reflex (idx, full) {
-        let r = rnd(1);
 
-        if (full || r === 0)
-            this.angles[idx] = roundAngle(rnd(-40, 40));
+        let r;
+
+        if (!full)
+            r = rnd(1);
+
+        if (full || r === 0) {
+            if (idx <= 5)
+                this.angles[idx] = meTrainer.moveBot('runner', 3);
+            else
+                this.angles[idx] = meTrainer.moveBot('blocker', 3);
+        }
+        if (full || r === 1)
+            if (idx > 5)
+                this.thrusts[idx] = meTrainer.moveBot('runner', 2);
+        else
+                this.thrusts[idx] = meTrainer.moveBot('blocker', 2);
     }
     randomize (idx, full = false) {
+
         let r = rnd(1);
-        if (r === 1)
+
+        if (r < 1)
             this.randomized(idx, full);
         else
-            this.reflex(idx, full)
+            this.reflex(idx, full);
+
+        this.score = -1;
     }
     randomized (idx, full = false) {
-        let r = rnd(1);
+        let r;
+
+        if (!full)
+            r = rnd(1);
 
         if (full || r === 0)
             this.angles[idx] = roundAngle(rnd(-40, 40));
@@ -574,7 +593,6 @@ class Solution {
             else
                 this.thrusts[idx] = -1;
         }
-        this.score = -1;
     }
     runRandomize () {
         for (let i = 0; i < 2 * DEPTH; i++)
@@ -609,10 +627,6 @@ class ReflexBot extends Bot {
     moveAsMain () {
         this.moveBot('runner', 1);
         this.moveBot('blocker',  1);
-    }
-    moveAsReturnThrust () {
-        this.moveBot('runner', 2);
-        this.moveBot('blocker',  2);
     }
     moveBot (type, forOutput = 0) {
 
@@ -691,8 +705,7 @@ class SearchBot extends Bot {
             if (this.id === 2)
                 meReflex.moveReflex();
             else if (this.id === 0)
-                meReflex.moveReflex();
-                //opp.moveSearchBot(opp.solution);
+                opp.moveSearchBot(opp.solution); //meReflex.moveReflex();
 
             play();
             if (turn === 0)
@@ -747,6 +760,7 @@ for (let i = 0; i < 4; i++) {
 }
 
 let meReflex = new ReflexBot(0),
+    meTrainer = new ReflexBot(2),
     me = new SearchBot(0),
     opp = new SearchBot(2);
 
@@ -790,7 +804,7 @@ while (true) {
         meReflex.moveAsMain();
 
     if (!TEST_REFLEX) {
-        //opp.solve(timeLimit * 0.40);
+        opp.solve(timeLimit * 0.15);
         me.solve(timeLimit, r > 0);
         //console.error(`oppScore ${opp.solution.score} meScore: ${me.solution.score}`);
     }
