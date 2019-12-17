@@ -15,7 +15,6 @@ let rand = Alea(),
     r = -1,
     turn = 0,
     sols_ct = 0,
-    //is_p2 = false,
     laps = parseInt(readline()),
     cp_ct = parseInt(readline()),
     pods = [...Array(4)],
@@ -552,7 +551,7 @@ class Solution {
 
         let r = rnd(1);
 
-        if (r < 1)
+        if (r === 1)
             this.randomized(idx, magnitude, full);
         else
             this.reflex(idx, full);
@@ -566,17 +565,12 @@ class Solution {
         if (!full)
             rand = rnd(1);
 
-        if (full || rand === 0) {
-            if (idx <= 5)
-                this.angles[idx] = meTrainer.moveBot('runner', 3);
-            else
-                this.angles[idx] = meTrainer.moveBot('blocker', 3);
-        }
+        if (full || rand === 0)
+            this.angles[idx] = meTrainer.moveBot('runner', 3);
+
         if (full || rand === 1)
-            if (idx > 5)
-                this.thrusts[idx] = meTrainer.moveBot('runner', 2);
-        else
-                this.thrusts[idx] = meTrainer.moveBot('blocker', 2);
+            this.thrusts[idx] = meTrainer.moveBot('runner', 2);
+
     }
     randomized (idx, magnitude, full = false) {
 
@@ -813,10 +807,13 @@ while (true) {
         //console.error(`oppScore ${opp.solution.score} meScore: ${me.solution.score}`);
     }
 
-    console.error(`elapsed time: ${Date.now() - now} score: ${me.solution.score}`);
 
 
-    console.error(`Avg. iterations: ${r === 0 ? sols_ct : sols_ct / r} Avg. sims: ${r === 0 ? sols_ct * DEPTH : sols_ct * DEPTH / r}`);
+    if (!TEST_REFLEX) {
+        console.error(`elapsed time: ${Date.now() - now} myScore: ${me.solution.score} oppScore: ${opp.solution.score}`);
+        console.error(`Avg. iterations: ${r === 0 ? sols_ct : sols_ct / r} Avg. sims: ${r === 0 ? sols_ct * DEPTH : sols_ct * DEPTH / r}`);
+    }
+
 
     if (!TEST_REFLEX) {
         printMove(me.solution.thrusts[0], me.solution.angles[0], pods[0]);
