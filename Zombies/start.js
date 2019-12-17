@@ -190,6 +190,7 @@ class Sim extends Point {
             this.move(solution[i]);
 
 
+
         }
 
 
