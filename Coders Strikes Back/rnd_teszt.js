@@ -83,13 +83,19 @@ function Alea() {
     } (Array.prototype.slice.call(arguments)));
 }
 
+function toRadians(degrees) {
+    return degrees * (Math.PI / 180);
+}
+
 
 
 
 
 
 const
-    MAX_THRUST = 100;
+    MY_MOVE_RANGE = 1000,
+    PI = Math.PI,
+    ANGLES = [0, PI / 4, PI / 2, (PI * 3) / 4, PI, (PI * 5) / 4, (PI * 6) / 4, (PI * 7) / 4];
 
 let rand = Alea();
 
@@ -99,8 +105,16 @@ let rand = Alea();
 
 //console.log(roundAngle(3));
 
-
+/*
 for (let i = 0; i < 100; i++)
     console.log(rnd(-5, 5));
+*/
 
+for (let i = 0; i < 8; i++) {
+    let magnitude = 1000,
+        x = Math.round(magnitude * Math.cos(ANGLES[i])),
+        y = -1 * Math.round(magnitude * Math.sin(ANGLES[i]));
+
+    console.log(`turn: ${i} magnitude: ${magnitude} x: ${x} y: ${y}`);
+}
 
