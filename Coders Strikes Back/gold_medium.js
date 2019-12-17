@@ -21,7 +21,6 @@ let rand = Alea(),
     pods = [...Array(4)],
     cps = [...Array(cp_ct)],
     now,
-    magnitude,
     podPartner = {
         0: 1,
         1: 0,
