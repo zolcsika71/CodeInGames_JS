@@ -7,12 +7,15 @@ const
     ZOMBIE_MOVE_RANGE = 400,
     PG_X = 16000,
     PG_Y = 9000,
+    DEPTH = 3,
     PI = Math.PI,
-    RAND = Alea(),
-    ANGLES = [0, PI / 4, PI / 2, (PI * 3) / 4, PI, (PI * 5) / 4, (PI * 6) / 4, (PI * 7) / 4];
+    RAND = Alea();
 
-let human = [],
-    zombie = [],
+let round = -1,
+    now,
+    time = 100,
+    humans = [],
+    zombies = [],
     myX,
     myY;
 
@@ -99,6 +102,22 @@ function Alea() {
 function rnd(n, b = 0) {
     return Math.round(RAND() * (b - n) + n);
 }
+function toRadians(degrees) {
+    return degrees * (Math.PI / 180);
+}
+function shuffle(array) {
+    return array.sort(function () {
+        return 0.5 - Math.random()
+    });
+}
+function cloneClass(classToClone) {
+    return Object.assign(Object.create(Object.getPrototypeOf(classToClone)), classToClone);
+}
+function play(solution) {
+
+
+
+}
 
 class Point {
     constructor(x, y) {
@@ -133,11 +152,62 @@ class Sim extends Point {
         this.x = x;
         this.y = y;
     }
+    move (target) {
+        this.update(target.x, target.y);
+    }
+    solve () {
+
+        me.save();
+
+        let lastScore = 0,
+            score = 0,
+            turns = rnd(DEPTH),
+            solution = new Solution(),
+            best = new Solution();
+
+        // simulate
+        while (Date.now() - now < time) {
+            // create a solution
+            for (i = 0; i <= turns; i++)
+                solution.randomize();
+
+            score = this.getSolutionScore(solution);
+
+            if (score > lastScore) {
+                lastScore = score;
+                best = cloneClass(solution);
+            }
+        }
+        this.solution = cloneClass(best);
+    }
+    getSolutionScore (solution) {
+
+        zombies.sort(function () {
+            return 0.5 - RAND();
+        });
+
+        for (i = 0; i < solution.length; i++) {
+            this.move(solution[i]);
+
+
+        }
+
+
+
+
+    }
+    evaluate () {
+
+    }
 }
 class Human extends Point {
     constructor(id, x, y) {
         super(x, y);
         this.id = id;
+    }
+    update(x, y) {
+        this.x = x;
+        this.y = y;
     }
 }
 class Zombie extends Point {
@@ -147,66 +217,93 @@ class Zombie extends Point {
         this.nextX = nextX;
         this.nextY = nextY;
     }
+    update(x, y, nextX, nextY) {
+        this.x = x;
+        this.y = y;
+        this.nextX = nextX;
+        this.nextY = nextY;
+    }
 }
 class Solution {
     constructor() {
         this.sol = [];
         this.score = -1;
     }
-    solve () {
-
-    }
     randomize () {
-        let turn = rnd(7),
+        let turn = toRadians(rnd(359)),
             magnitude = rnd(MY_MOVE_RANGE),
-            x = magnitude * Math.cos(ANGLES[turn]),
-            y = magnitude * Math.sin(ANGLES[turn]);
+            x = magnitude * Math.cos(turn),
+            y = -1 * magnitude * Math.sin(turn);
         this.sol.push({
             x: x,
             y: y
         });
     }
-    evaluate () {
-
-    }
 }
 
+let inputs = readline().split(' ');
 
+myX = parseInt(inputs[0]);
+myY = parseInt(inputs[1]);
+
+let me = new Sim(myX, myY);
+
+let humanCount = parseInt(readline());
+
+for (let i = 0; i < humanCount; i++) {
+    let inputs = readline().split(' '),
+        x = parseInt(inputs[1]),
+        y = parseInt(inputs[2]);
+    humans.push(new Human(i, x, y));
+}
+
+let zombieCount = parseInt(readline());
+
+for (let i = 0; i < zombieCount; i++) {
+    let inputs = readline().split(' '),
+        x = parseInt(inputs[1]),
+        y = parseInt(inputs[2]),
+        nextX = parseInt(inputs[3]),
+        nextY = parseInt(inputs[4]);
+    zombies.push(new Zombie(i, x, y, nextX, nextY));
+}
 
 // game loop
 while (true) {
 
-    let inputs = readline().split(' ');
+    round++;
 
-    myX = parseInt(inputs[0]);
-    myY = parseInt(inputs[1]);
+    if (round > 0) {
+        let inputs = readline().split(' ');
 
+        myX = parseInt(inputs[0]);
+        myY = parseInt(inputs[1]);
 
+        me.update(myX, myY);
 
-    let humanCount = parseInt(readline());
+        humanCount = parseInt(readline());
 
-    for (let i = 0; i < humanCount; i++) {
-        let inputs = readline().split(' '),
-            id = parseInt(inputs[0]),
-            x = parseInt(inputs[1]),
-            y = parseInt(inputs[2]);
-        human.push(new Human(id, x, y));
+        for (let i = 0; i < humanCount; i++) {
+            let inputs = readline().split(' '),
+                x = parseInt(inputs[1]),
+                y = parseInt(inputs[2]);
+            humans[i].update(x, y);
+        }
+
+        zombieCount = parseInt(readline());
+
+        for (let i = 0; i < zombieCount; i++) {
+            let inputs = readline().split(' '),
+                x = parseInt(inputs[1]),
+                y = parseInt(inputs[2]),
+                nextX = parseInt(inputs[3]),
+                nextY = parseInt(inputs[4]);
+            zombies[i].update(x, y, nextX, nextY);
+        }
     }
 
-    let zombieCount = parseInt(readline());
-
-    for (let i = 0; i < zombieCount; i++) {
-        let inputs = readline().split(' '),
-            id = parseInt(inputs[0]),
-            x = parseInt(inputs[1]),
-            y = parseInt(inputs[2]),
-            nextX = parseInt(inputs[3]),
-            nextY = parseInt(inputs[4]);
-        zombie.push(new Zombie(id, x, y, nextX, nextY));
-    }
-
-    console.error(zombie[0].id);
-    console.error(human[0].id);
+    console.error(zombies[0].id);
+    console.error(humans[0].id);
 
 
     // Write an action using console.log()

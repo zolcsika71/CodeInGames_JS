@@ -87,7 +87,9 @@ function toRadians(degrees) {
     return degrees * (Math.PI / 180);
 }
 
-
+function BB(x) {
+    return JSON.stringify(x, null, 2);
+}
 
 
 
@@ -97,7 +99,8 @@ const
     PI = Math.PI,
     ANGLES = [0, PI / 4, PI / 2, (PI * 3) / 4, PI, (PI * 5) / 4, (PI * 6) / 4, (PI * 7) / 4];
 
-let rand = Alea();
+let rand = Alea(),
+    array = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 
 
@@ -109,7 +112,7 @@ let rand = Alea();
 for (let i = 0; i < 100; i++)
     console.log(rnd(-5, 5));
 */
-
+/*
 for (let i = 0; i < 8; i++) {
     let magnitude = 1000,
         x = Math.round(magnitude * Math.cos(ANGLES[i])),
@@ -117,4 +120,12 @@ for (let i = 0; i < 8; i++) {
 
     console.log(`turn: ${i} magnitude: ${magnitude} x: ${x} y: ${y}`);
 }
+*/
+
+let shuffled = array.sort(function () {
+    return 0.5 - Math.random()
+});
+
+console.log(`${BB(array)}`);
+console.log(`${BB(shuffled)}`);
 
