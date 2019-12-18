@@ -1,3 +1,4 @@
+"use strict";
 
 
 const
@@ -8,12 +9,13 @@ const
     PG_X = 16000,
     PG_Y = 9000,
     DEPTH = 3,
+    TIME = 100,
     PI = Math.PI,
     RAND = Alea();
 
 let round = -1,
     now,
-    time = 100,
+    sol_ct = -1,
     humans = [],
     zombies = [],
     myX,
@@ -107,7 +109,7 @@ function toRadians(degrees) {
 }
 function shuffle(array) {
     return array.sort(function () {
-        return 0.5 - Math.random()
+        return 0.5 - RAND();
     });
 }
 function cloneClass(classToClone) {
@@ -122,12 +124,34 @@ function fib(n) {
     }
     return result[n];
 }
-function play(solution) {
-
-
-
+function baseVector(point1, point2) {
+    return {
+        x: point2.x - point1.x,
+        y: point2.y - point1.y
+    };
 }
 
+
+class Vector {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    multiply (scalar) {
+        return new Vector(this.x * scalar, this.y * scalar);
+    }
+    magnitude () {
+        return Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2));
+    }
+    truncate(max) {
+        let i = max / this.magnitude(),
+            velocity;
+        i = i < 1 ? i : 1;
+        velocity = this.multiply(i);
+
+        return velocity;
+    }
+}
 class Point {
     constructor(x, y) {
         this.x = x;
@@ -148,6 +172,10 @@ class Sim extends Point {
     constructor(x, y) {
         super(x, y);
         this.cache = {};
+        this.solution = {};
+        this.zombieKilled = 0;
+        this.humanKilled = 0;
+
     }
     save () {
         this.cache.x = this.x;
@@ -164,56 +192,101 @@ class Sim extends Point {
     move (target) {
         this.update(this.x + target.x, this.y + target.y);
     }
+    moveToZombie (id) {
+        let direction = new Vector(baseVector(this, zombies[id]));
+        direction = direction.truncate(MY_MOVE_RANGE);
+        this.move(direction);
+    }
     solve () {
 
         let lastScore = 0,
             score = 0,
-            turns = rnd(DEPTH),
             solution = new Solution(),
             best = new Solution();
 
+        best.coords.x = this.x;
+        best.coords.y = this.y;
+
         // simulate
-        while (Date.now() - now < time) {
+        while (Date.now() - now < TIME) {
+            sol_ct++;
             // create a solution
-            for (i = 0; i <= turns; i++)
+            if (sol_ct > 0)
                 solution.randomize();
+            else {
+                solution.coords.x = this.x;
+                solution.coords.y = this.y;
+            }
 
             score = this.getSolutionScore(solution);
+
+            //console.error(`x: ${solution.coords.x} y: ${solution.coords.y}`);
+            //console.error(`score: ${score}`);
 
             if (score > lastScore) {
                 lastScore = score;
                 best = cloneClass(solution);
+                //console.error(`best: ${best.coords.x} ${best.coords.y}`);
             }
         }
-        this.solution = cloneClass(best);
+        console.error(`${this.x} ${this.y}`);
+        console.error(`${best.coords.x} ${best.coords.y}`);
+        this.solution.x = this.x + best.coords.x;
+        this.solution.y = this.x + best.coords.y;
+
     }
     getSolutionScore (solution) {
 
-        let zombieShuffle = [...zombies],
-            zombieKilled = 0,
-            humanKilled = 0;
+        let score = 0,
+            moveScore = 0,
+            lastMoveScore = 0;
 
+        this.save();
+        //shuffle(zombies);
 
-        shuffle(zombieShuffle);
+        this.move(solution);
 
-        for (i = 0; i < solution.length; i++) {
-            this.save();
-            this.move(solution[i]);
-            for (let i = 0; i < zombieCount; i++) {
-                if (zombieShuffle[i].dist(this) <= MY_KILL_RANGE)
-                    zombieKilled++;
-                for (let j = 0; j < humanCount; j++)
-                    if (zombieShuffle[i].dist(humans[j]) <= ZOMBIE_KILL_RANGE)
-                        humanKilled++
+        score += this.play();
 
-            }
+        /*
+        // TODO for further combos
+        this.moveToZombie(i);
+        score += this.play();
+        */
+        this.load();
+        return score;
+    }
+    play() {
+
+        let zombieLength = zombies.length,
+            humanLength = humans.length;
+
+        for (let i = 0; i < zombieLength; i++) {
+            let zombiePos = new Point(zombies[i].nextX, zombies[i].nextY);
+
+            // zombie killed?
+            if (zombiePos.dist(this) <= MY_KILL_RANGE)
+                this.zombieKilled++;
+
+            // human killed?
+            for (let k = 0; k < humanLength; k++)
+                if (zombiePos.dist(humans[k]) <= ZOMBIE_KILL_RANGE)
+                    this.humanKilled++;
         }
-
-
-
+        return this.evaluate();
 
     }
     evaluate () {
+
+        let humansAlive = humans.length - this.humanKilled,
+            score = 0;
+
+        if (this.zombieKilled > 1)
+            score = humansAlive * humansAlive * 10 * fib(this.zombieKilled + 3);
+        else if (this.zombieKilled === 1)
+            score = humansAlive * humansAlive * 10;
+
+        return score;
 
     }
 }
@@ -221,6 +294,7 @@ class Human extends Point {
     constructor(id, x, y) {
         super(x, y);
         this.id = id;
+        this.alive = true;
     }
     update(x, y) {
         this.x = x;
@@ -233,6 +307,7 @@ class Zombie extends Point {
         this.id = id;
         this.nextX = nextX;
         this.nextY = nextY;
+        this.alive = true;
     }
     update(x, y, nextX, nextY) {
         this.x = x;
@@ -243,18 +318,17 @@ class Zombie extends Point {
 }
 class Solution {
     constructor() {
-        this.sol = [];
-        this.score = -1;
+        this.coords = {};
     }
     randomize () {
         let turn = toRadians(rnd(359)),
             magnitude = rnd(MY_MOVE_RANGE),
             x = magnitude * Math.cos(turn),
-            y = -1 * magnitude * Math.sin(turn);
-        this.sol.push({
-            x: x,
-            y: y
-        });
+            y = magnitude * Math.sin(turn);
+        this.coords = {
+            x: Math.round(x),
+            y: Math.round(y)
+        };
     }
 }
 
@@ -319,13 +393,11 @@ while (true) {
         }
     }
 
-    console.error(zombies[0].id);
-    console.error(humans[0].id);
+    now = Date.now();
+    me.solve();
 
+    console.error(`so_ct ${round === 0 ? sol_ct : sol_ct / round}`);
 
-    // Write an action using console.log()
-    // To debug: console.error('Debug messages...');
-
-    console.log('0 0');     // Your destination coordinates
+    console.log(`${me.solution.x} ${me.solution.y}`);
 
 }
