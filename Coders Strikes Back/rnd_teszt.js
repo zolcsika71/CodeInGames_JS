@@ -91,6 +91,18 @@ function BB(x) {
     return JSON.stringify(x, null, 2);
 }
 
+function fib(n) {
+    let result = [0, 1];
+    for (let i = 2; i <= n; i++) {
+        let a = result[i - 1],
+            b = result[i - 2];
+        result.push(a + b);
+    }
+    return result[n];
+}
+
+console.log(fib(4));
+
 
 
 
@@ -121,11 +133,13 @@ for (let i = 0; i < 8; i++) {
     console.log(`turn: ${i} magnitude: ${magnitude} x: ${x} y: ${y}`);
 }
 */
-
+/*
 let shuffled = array.sort(function () {
     return 0.5 - Math.random()
 });
 
 console.log(`${BB(array)}`);
 console.log(`${BB(shuffled)}`);
+*/
+
 

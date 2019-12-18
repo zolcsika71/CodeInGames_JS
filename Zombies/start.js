@@ -113,6 +113,15 @@ function shuffle(array) {
 function cloneClass(classToClone) {
     return Object.assign(Object.create(Object.getPrototypeOf(classToClone)), classToClone);
 }
+function fib(n) {
+    let result = [0, 1];
+    for (let i = 2; i <= n; i++) {
+        let a = result[i - 1],
+            b = result[i - 2];
+        result.push(a + b);
+    }
+    return result[n];
+}
 function play(solution) {
 
 
@@ -153,11 +162,9 @@ class Sim extends Point {
         this.y = y;
     }
     move (target) {
-        this.update(target.x, target.y);
+        this.update(this.x + target.x, this.y + target.y);
     }
     solve () {
-
-        me.save();
 
         let lastScore = 0,
             score = 0,
@@ -182,15 +189,24 @@ class Sim extends Point {
     }
     getSolutionScore (solution) {
 
-        zombies.sort(function () {
-            return 0.5 - RAND();
-        });
+        let zombieShuffle = [...zombies],
+            zombieKilled = 0,
+            humanKilled = 0;
+
+
+        shuffle(zombieShuffle);
 
         for (i = 0; i < solution.length; i++) {
+            this.save();
             this.move(solution[i]);
+            for (let i = 0; i < zombieCount; i++) {
+                if (zombieShuffle[i].dist(this) <= MY_KILL_RANGE)
+                    zombieKilled++;
+                for (let j = 0; j < humanCount; j++)
+                    if (zombieShuffle[i].dist(humans[j]) <= ZOMBIE_KILL_RANGE)
+                        humanKilled++
 
-
-
+            }
         }
 
 
