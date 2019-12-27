@@ -101,7 +101,7 @@ function fib(n) {
     return result[n];
 }
 
-console.log(fib(5));
+//console.log(fib(5));
 
 
 
