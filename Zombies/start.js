@@ -6,7 +6,7 @@ const
     MY_MOVE_RANGE = 1000,
     ZOMBIE_KILL_RANGE = 400,
     DEPTH = 4,
-    TIME = 2, // TODO reset to 100
+    TIME = 100,
     RAND = Alea();
 
 let round = -1,
@@ -107,6 +107,9 @@ function shuffle(array) {
 function cloneClass(classToClone) {
     return Object.assign(Object.create(Object.getPrototypeOf(classToClone)), classToClone);
 }
+function cloneArray(array) {
+    return array.map(a => Object.assign({}, a));
+}
 function fib(n) {
     let result = [0, 1];
     for (let i = 2; i <= n; i++) {
@@ -168,8 +171,8 @@ class Sim extends Point {
         this.cache = {};
         this.endGameCache = {};
         this.solution = {};
-        this.humans = [...humans];
-        this.zombies = [...zombies];
+        this.humans = cloneArray(humans);
+        this.zombies = cloneArray(zombies);
         this.zombieKilled = 0;
         this.humanKilled = 0;
 
@@ -177,40 +180,40 @@ class Sim extends Point {
     save () {
         this.cache.x = this.x;
         this.cache.y = this.y;
-        this.cache.humans = [...this.humans];
-        this.cache.zombies = [...this.zombies];
+        this.cache.humans = cloneArray(this.humans);
+        this.cache.zombies = cloneArray(this.zombies);
         this.cache.zombieKilled = this.zombieKilled;
         this.cache.humanKilled = this.humanKilled;
     }
     load () {
         this.x = this.cache.x;
         this.y = this.cache.y;
-        this.humans = [...this.cache.humans];
-        this.zombies = [...this.cache.zombies];
+        this.humans = cloneArray(this.cache.humans);
+        this.zombies = cloneArray(this.cache.zombies);
         this.zombieKilled = this.cache.zombieKilled;
         this.humanKilled = this.cache.humanKilled;
     }
     endGameSave () {
         this.endGameCache.x = this.x;
         this.endGameCache.y = this.y;
-        this.endGameCache.humans = [...this.humans];
-        this.endGameCache.zombies = [...this.zombies];
+        this.endGameCache.humans = cloneArray(this.humans);
+        this.endGameCache.zombies = cloneArray(this.zombies);
         this.endGameCache.zombieKilled = this.zombieKilled;
         this.endGameCache.humanKilled = this.humanKilled;
     }
     endGameLoad () {
         this.x = this.endGameCache.x;
         this.y = this.endGameCache.y;
-        this.humans = [...this.endGameCache.humans];
-        this.zombies = [...this.endGameCache.zombies];
+        this.humans = cloneArray(this.endGameCache.humans);
+        this.zombies = cloneArray(this.endGameCache.zombies);
         this.zombieKilled = this.endGameCache.zombieKilled;
         this.humanKilled = this.endGameCache.humanKilled;
     }
     update (x, y, humans, zombies) {
         this.x = x;
         this.y = y;
-        this.humans = [...humans];
-        this.zombies = [...zombies];
+        this.humans = cloneArray(humans);
+        this.zombies = cloneArray(zombies);
     }
     move (target) {
         this.x = this.x + target.x;
@@ -219,29 +222,21 @@ class Sim extends Point {
     moveToZombie (id) {
         let base = baseVector(this, this.zombies[id]),
             direction = new Vector(base.x, base.y);
-        // truncate is not necessary, coordinates are truncated by engine in theory
+        // TODO truncate is not necessary, coordinates are truncated by the engine in theory
         direction = direction.truncate(MY_MOVE_RANGE);
         this.move(direction);
-    }
-    reduce(array, idArray) {
-        return array.filter(arrayElement => {
-            return !idArray.some(idArrayElement => {
-                return idArrayElement === arrayElement.id;
-            })
-        })
     }
     solve () {
 
         let best = new Solution(this.x, this.y),
-            //turns = rnd(1, DEPTH),
-            turns = 1, // TODO restore
+            turns = rnd(1, DEPTH),
             lastScore = 0,
             score = 0;
 
         //best.coords.x = this.x;
         //best.coords.y = this.y;
 
-        //console.error(`turns ${turns}`);
+        console.error(`solutionLength: ${turns}`);
 
         // simulate
         while (Date.now() - now < TIME) {
@@ -260,7 +255,7 @@ class Sim extends Point {
             this.save();
 
             score = this.getSolutionScore(solution);
-            console.error(`score: ${score}`);
+            //console.error(`score: ${score}`);
 
             this.load();
 
@@ -269,14 +264,23 @@ class Sim extends Point {
 
             if (score > lastScore) {
                 lastScore = score;
-                best = cloneClass(solution);
+                best = solution;
                 //console.error(`best: ${best.coords.x} ${best.coords.y}`);
             }
         }
         //console.error(`${this.x} ${this.y}`);
         //console.error(`${best.coords.x} ${best.coords.y}`);
-        this.solution.x = this.x + best.coords[0].x;
-        this.solution.y = this.x + best.coords[0].y;
+        //console.error(`best score: ${lastScore}`);
+
+        if (humanCount > 0) {
+            this.solution.x = this.x + best.coords[0].x;
+            this.solution.y = this.y + best.coords[0].y;
+            this.solution.score = lastScore;
+        } else {
+            this.solution.x = 0;
+            this.solution.y = 0;
+            this.solution.score = lastScore;
+        }
 
     }
     getSolutionScore (solution) {
@@ -285,17 +289,18 @@ class Sim extends Point {
             finalScore = 0,
             lastFinalScore = 0,
             solutionLength = solution.coords.length;
-        //console.error(`sol.length: ${solutionLength}`);
 
         // move on solution, count score on the move
         for (let i = 0; i < solutionLength; i++) {
             //this.save();
             this.move(solution.coords[i]);
+            //console.error(`solution-> x: ${solution.coords[i].x} y: ${solution.coords[i].y}`);
             score += this.score();
 
-            //console.error(`root score: ${score}`);
-
             // at position move to all zombies
+            //console.error(`before endGame-> myX: ${this.x} myY: ${this.y}`);
+            //console.error(`before endGame-> zombies ${this.zombies[0].alive}`);
+
             this.endGameSave();
 
             finalScore = score + this.endGame();
@@ -304,8 +309,9 @@ class Sim extends Point {
                 lastFinalScore = finalScore;
 
             this.endGameLoad();
-            console.error(`round: ${i} sim: x: ${this.x} y: ${this.y} score: ${lastFinalScore}`);
-
+            //console.error(`round: ${i} sim: x: ${this.x} y: ${this.y} score: ${lastFinalScore}`);
+            //console.error(`myX: ${this.x} myY: ${this.y}`);
+            //console.error(`zombies ${this.zombies[0].alive}`);
             //score = 0;
 
         }
@@ -315,69 +321,63 @@ class Sim extends Point {
     endGame () {
         let endGameScore = 0,
             lastEndGameScore = 0,
+            counter = 0,
             zombiesLength = this.zombies.length;
 
         shuffle(this.zombies);
 
-        //console.error(`zombies.length: ${zombiesLength}`);
+        //console.error(`start-> x: ${this.x} y: ${this.y}`);
 
-        for (let i = 0; i < this.zombies.length; i++) {
-            //console.error(`van zombie: ${this.dist(this.zombies[i])}`);
-            while (this.dist(this.zombies[i]) > MY_KILL_RANGE) {
-                this.moveToZombie(i);
-                // TODO this.score reduce the array we are browsing in -> at 153 undef
-                let score = this.score;
-                if (score > 0) {
-                    endGameScore += score;
-                    i = 0;
+        for (let i = 0; i < zombiesLength; i++) {
+            if (this.zombies[i].alive) {
+                let zombiePos = new Point(this.zombies[i].nextX, this.zombies[i].nextY);
+                while (this.dist(zombiePos) > MY_KILL_RANGE) {
+                    this.moveToZombie(i);
+                    //console.error(`x: ${this.x} y: ${this.y} not in range: ${this.dist(zombiePos) > MY_KILL_RANGE}`);
+                    endGameScore += this.score();
+                    counter++
                 }
+                endGameScore = endGameScore / counter;
+                if (endGameScore > lastEndGameScore)
+                    lastEndGameScore = endGameScore;
+                //console.error(`counter: ${counter}`);
+                counter = 0;
             }
-            if (endGameScore > lastEndGameScore)
-                lastEndGameScore = endGameScore;
+
         }
         return lastEndGameScore;
     }
     score() {
 
         let zombieLength = this.zombies.length,
-            humanLength = this.humans.length,
-            deadZombiesId = [],
-            deadHumansId = [];
+            humanLength = this.humans.length;
 
         for (let i = 0; i < zombieLength; i++) {
-            let zombiePos = new Point(this.zombies[i].nextX, this.zombies[i].nextY);
-            //console.error(`van zombie: ${BB(this)}`);
-            // zombie killed?
-            if (zombiePos) {
+
+            if (this.zombies[i].alive) {
+
+                let zombiePos = new Point(this.zombies[i].nextX, this.zombies[i].nextY);
+
+                // zombie killed?
                 if (zombiePos.dist(this) <= MY_KILL_RANGE) {
                     this.zombieKilled++;
-                    deadZombiesId.push(i);
+                    this.zombies[i].alive = false;
                 }
-            }
 
-            //console.error(`zPos: ${BB(zombiePos)}`);
-
-            // human killed?
-            if (zombiePos) {
-                for (let k = 0; k < humanLength; k++) {
-                    //console.error(`van zombie: ${BB(zombiePos)}`);
-                    if (zombiePos.dist(this.humans[k]) <= ZOMBIE_KILL_RANGE) {
+                // human killed?
+                for (let j = 0; j < humanLength; j++) {
+                    if (this.humans[j].alive && zombiePos.dist(this.humans[j]) <= ZOMBIE_KILL_RANGE) {
                         this.humanKilled++;
-                        deadHumansId.push(k);
+                        this.humans[j].alive = false;
                     }
                 }
             }
         }
-
-        // TODO use .alive on zombies and humans
-        this.humans = this.reduce(this.humans, deadHumansId);
-        this.zombies = this.reduce(this.zombies, deadZombiesId);
         return this.evaluate();
-
     }
     evaluate () {
 
-        let humansAlive = this.humans.length,
+        let humansAlive = this.humans.length - this.humanKilled,
             score = 0;
 
         if (this.zombieKilled > 1)
@@ -385,7 +385,7 @@ class Sim extends Point {
         else if (this.zombieKilled === 1)
             score = humansAlive * humansAlive * 10;
 
-        console.error(`humansKilled ${this.humanKilled} zombiesKilled: ${this.zombieKilled} score: ${score}`);
+        //console.error(`humansKilled ${this.humanKilled} zombiesKilled: ${this.zombieKilled} score: ${score}`);
 
         return score;
 
@@ -422,25 +422,33 @@ class Solution {
         this.coords = [];
         this.simX = x;
         this.simY = y;
+        this.score = -1;
     }
     randomize () {
         let rand = {
             min: 0,
             max: 359
         };
+
+        // corner cases
+
+        // top left
         if (this.simX <= 1414 && this.simY <= 1414) {
             rand.min = 270;
             rand.max = 359
         }
-        if (this.simX >= 14585 && this.simY <= 1414) {
+        // top right
+        if (this.simX >= 14586 && this.simY <= 1414) {
             rand.min = 180;
             rand.max = 270
         }
-        if (this.simX >= 14585 && this.simY >= 7585) {
+        // bottom right
+        if (this.simX >= 14586 && this.simY >= 7586) {
             rand.min = 90;
             rand.max = 180
         }
-        if (this.simX <= 1414 && this.simY >= 7585) {
+        // bottom left
+        if (this.simX <= 1414 && this.simY >= 7586) {
             rand.min = 0;
             rand.max = 90
         }
@@ -449,7 +457,7 @@ class Solution {
             magnitude = Math.max(0, Math.min(MY_MOVE_RANGE, rnd(-0.5 * MY_MOVE_RANGE, 2 * MY_MOVE_RANGE))),
             x = magnitude * Math.cos(turn),
             y = -1 * magnitude * Math.sin(turn);
-
+        // TODO round is not necessary
         this.coords.push({
             x: Math.round(x),
             y: Math.round(y)
@@ -522,13 +530,15 @@ while (true) {
         me.update(myX, myY, humans, zombies);
     }
 
+
     now = Date.now();
     me.solve();
 
     console.error(`elapsed time: ${Date.now() - now}`);
 
-    console.error(`so_ct ${round === 0 ? sol_ct : sol_ct / round}`);
+    console.error(`sol_ct ${round === 0 ? sol_ct : sol_ct / round} score: ${me.solution.score}`);
 
     console.log(`${me.solution.x} ${me.solution.y}`);
+
 
 }

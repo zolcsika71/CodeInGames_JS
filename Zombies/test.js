@@ -116,69 +116,37 @@ function baseVector(point1, point2) {
         y: point2.y - point1.y
     };
 }
-
-
-
-let zombie = [
-    {id: 0}, {id: 1}, {id: 2}, {id: 3}, {id: 4},
-],
-    filteredBy = [2, 3];
-
-function reduce(array, idArray) {
-    return array.filter(arrayElement => {
-        return !idArray.some(idArrayElement => {
-            return idArrayElement === arrayElement.id;
-        })
-    })
+function cloneClass(classToClone) {
+    return Object.assign(Object.create(Object.getPrototypeOf(classToClone)), classToClone);
 }
-//console.log(`${reduce(zombie, filteredBy)}`);
-
-class Solution {
-    constructor(x, y) {
-        this.coords = {};
-        this.simX = x;
-        this.simY = y;
-    }
-    randomize () {
-        let turn = toRadians(315),
-            magnitude = Math.max(0, Math.min(MY_MOVE_RANGE, rnd(-0.5 * MY_MOVE_RANGE, 2 * MY_MOVE_RANGE))),
-            x = magnitude * Math.cos(turn),
-            y = -1 * magnitude * Math.sin(turn);
-        this.coords = {
-            x: Math.round(x),
-            y: Math.round(y)
-        };
-        console.log(`magnitude ${magnitude}`);
+function cloneArray(array) {
+    return array.map(a => Object.assign({}, a));
+}
+class Zombie {
+    constructor() {
+        this.alive = true;
     }
 }
-/*
-let sol = new Solution(0, 0);
-for (let i = 0; i < 50; i++) {
-    sol.randomize();
-    //console.log(`x: ${sol.coords.x} y: ${sol.coords.y}`);
-}
-*/
 
-let position = {
-        x: 0,
-        y: 9000
-    },
-    target = {
-        x: 2000,
-        y: 7000
-    };
+let a = [],
+    b;
 
-
-function count(position, target) {
-    let base = baseVector(position, target),
-        direction = new Vector(base.x, base.y);
-    console.log(`dir: ${base.x}, ${base.y}`);
-    direction = direction.truncate(MY_KILL_RANGE);
-    return direction;
+for (let i = 0; i < 3; i++) {
+    a[i] = new Zombie();
+    //b.push(cloneClass(a[i]));
 }
 
-console.log(`x: ${position.x + count(position, target).x} y: ${position.y + count(position, target).y}`);
+b = cloneArray(a);
 
+
+
+a[0].alive = false;
+
+a = cloneArray(b);
+
+
+console.log(`a: ${BB(a)}`);
+console.log(`b: ${BB(b)}`);
 
 
 
