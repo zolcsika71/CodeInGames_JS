@@ -112,6 +112,9 @@ function roundAngle(angle) {
 function cloneClass(classToClone) {
     return Object.assign(Object.create(Object.getPrototypeOf(classToClone)), classToClone);
 }
+function cloneArray(array) {
+    return array.map(a => Object.assign({}, a));
+}
 function printMove(thrust, angle, pod) {
 
     //console.error(`pod.angle: ${pod.angle} inputAngle: ${angle} roundedAngle: ${roundAngle(angle)}`);
@@ -542,8 +545,8 @@ class Solution {
         this.randomize(rnd(2 * DEPTH - 1), magnitude);
     }
     mutateChild (child, magnitude) {
-        child.angles = [...this.angles];
-        child.thrusts = [...this.thrusts];
+        child.angles = cloneArray(this.angles);
+        child.thrusts = cloneArray(this.thrusts);
         child.mutate(magnitude);
         child.score = -1;
     }
