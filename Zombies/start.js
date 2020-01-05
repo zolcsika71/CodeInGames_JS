@@ -237,6 +237,8 @@ class Sim extends Point {
         //best.coords.y = this.y;
 
         console.error(`solutionLength: ${turns}`);
+        let zombiePos = new Point(this.zombies[0].nextX, this.zombies[0].nextY);
+        console.error(`dist: ${this.dist(zombiePos)}`);
 
         // simulate
         while (Date.now() - now < TIME) {
@@ -251,6 +253,9 @@ class Sim extends Point {
 
             //console.error(`solution.length: ${turns}`);
             //console.error(`solution: ${BB(solution)}`);
+
+            //console.error(`before getSolutionScore-> zombies.alive: ${this.zombies[0].alive}`);
+
 
             this.save();
 
@@ -299,7 +304,7 @@ class Sim extends Point {
 
             // at position move to all zombies
             //console.error(`before endGame-> myX: ${this.x} myY: ${this.y}`);
-            //console.error(`before endGame-> zombies ${this.zombies[0].alive}`);
+            //console.error(`before endGame-> zombies.alive: ${this.zombies[0].alive}`);
 
             this.endGameSave();
 
@@ -311,7 +316,7 @@ class Sim extends Point {
             this.endGameLoad();
             //console.error(`round: ${i} sim: x: ${this.x} y: ${this.y} score: ${lastFinalScore}`);
             //console.error(`myX: ${this.x} myY: ${this.y}`);
-            //console.error(`zombies ${this.zombies[0].alive}`);
+            //console.error(`before endGame-> zombies.alive ${this.zombies[0].alive}`);
             //score = 0;
 
         }
@@ -537,6 +542,10 @@ while (true) {
     console.error(`elapsed time: ${Date.now() - now}`);
 
     console.error(`sol_ct ${round === 0 ? sol_ct : sol_ct / round} score: ${me.solution.score}`);
+
+    console.error(`humans: ${humans.length} zombies: ${zombies.length}`);
+
+    console.error(`zombie.coords: ${zombies[0].x} ${zombies[0].y}`);
 
     console.log(`${me.solution.x} ${me.solution.y}`);
 
