@@ -229,7 +229,8 @@ class Sim extends Point {
     solve () {
 
         let best = new Solution(this.x, this.y),
-            turns = rnd(1, DEPTH),
+            //turns = rnd(1, DEPTH),
+            turns = 3, // TODO lastScore multiplied wth this
             lastScore = 0,
             score = 0;
 
@@ -239,6 +240,7 @@ class Sim extends Point {
         console.error(`solutionLength: ${turns}`);
         let zombiePos = new Point(this.zombies[0].nextX, this.zombies[0].nextY);
         console.error(`dist: ${this.dist(zombiePos)}`);
+        console.error(`humansKilled ${this.humanKilled} zombiesKilled: ${this.zombieKilled}`);
 
         // simulate
         while (Date.now() - now < TIME) {
@@ -348,7 +350,6 @@ class Sim extends Point {
                 //console.error(`counter: ${counter}`);
                 counter = 0;
             }
-
         }
         return lastEndGameScore;
     }
@@ -429,40 +430,56 @@ class Solution {
         this.simY = y;
         this.score = -1;
     }
-    randomize () {
+    selectRange () {
+
         let rand = {
             min: 0,
             max: 359
         };
 
-        // corner cases
-
-        // top left
-        if (this.simX <= 1414 && this.simY <= 1414) {
+        // corner cases, side cases
+        if (this.simX <= 1414 && this.simY <= 1414) { // top left
             rand.min = 270;
-            rand.max = 359
-        }
-        // top right
-        if (this.simX >= 14586 && this.simY <= 1414) {
+            rand.max = 359;
+        } else if (this.simX >= 14586 && this.simY <= 1414) { // top right
             rand.min = 180;
-            rand.max = 270
-        }
-        // bottom right
-        if (this.simX >= 14586 && this.simY >= 7586) {
+            rand.max = 270;
+        } else if (this.simX >= 14586 && this.simY >= 7586) { // bottom right
             rand.min = 90;
-            rand.max = 180
-        }
-        // bottom left
-        if (this.simX <= 1414 && this.simY >= 7586) {
+            rand.max = 180;
+        } else if (this.simX <= 1414 && this.simY >= 7586) { // bottom left
             rand.min = 0;
-            rand.max = 90
+            rand.max = 90;
+        } else if (this.simY <= 1414) { // top
+            rand.min = 180;
+            rand.max = 359;
+        } else if (this.simY >= 7586) { // bottom
+            rand.min = 0;
+            rand.max = 180;
+        } else if (this.simX <= 1414) {  // left
+            let side = rnd(1);
+            if (side === 0) {
+                rand.min = 0;
+                rand.max = 90;
+            } else {
+                rand.min = 270;
+                rand.max = 359;
+            }
+        } else if (this.simX >= 14586) { // right
+            rand.min = 90;
+            rand.max = 270;
         }
 
-        let turn = toRadians(rnd(rand.min, rand.max)),
+        return rand;
+    }
+    randomize () {
+
+        let rand = this.selectRange(),
+            turn = toRadians(rnd(rand.min, rand.max)),
             magnitude = Math.max(0, Math.min(MY_MOVE_RANGE, rnd(-0.5 * MY_MOVE_RANGE, 2 * MY_MOVE_RANGE))),
             x = magnitude * Math.cos(turn),
             y = -1 * magnitude * Math.sin(turn);
-        // TODO round is not necessary
+
         this.coords.push({
             x: Math.round(x),
             y: Math.round(y)
