@@ -128,25 +128,10 @@ class Zombie {
     }
 }
 
-let a = [],
-    b;
-
-for (let i = 0; i < 3; i++) {
-    a[i] = new Zombie();
-    //b.push(cloneClass(a[i]));
-}
-
-b = cloneArray(a);
 
 
-
-a[0].alive = false;
-
-a = cloneArray(b);
-
-
-console.log(`a: ${BB(a)}`);
-console.log(`b: ${BB(b)}`);
+for (let i = 0; i < 50; i++)
+    console.log(Math.max(0, Math.min(MY_MOVE_RANGE, rnd(-0.1 * MY_MOVE_RANGE, 2 * MY_MOVE_RANGE))));
 
 
 
