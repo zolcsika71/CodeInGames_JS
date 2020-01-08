@@ -1,8 +1,20 @@
 "use strict";
 
 const
+    MY_KILL_RANGE = 2000,
     MY_MOVE_RANGE = 1000,
+    ZOMBIE_KILL_RANGE = 400,
+    DEPTH = 3,
+    TIME = 100,
     RAND = new Alea();
+
+let round = -1,
+    now,
+    sol_ct = -1,
+    humans = [],
+    zombies = [],
+    myX,
+    myY;
 
 
 function toRadians(degrees) {
@@ -84,36 +96,181 @@ function Alea() {
 function rnd(n, b = 0) {
     return Math.round(RAND() * (b - n) + n);
 }
-
-
-
-let generator = function () {
-    let turn = toRadians(rnd(0, 359)),
-        randMagnitude =  rnd(-0.5 * MY_MOVE_RANGE, 2 * MY_MOVE_RANGE),
-        magnitude = truncateValue(randMagnitude, 0, MY_MOVE_RANGE),
-        x = magnitude * Math.cos(turn),
-        y = -1 * magnitude * Math.sin(turn);
-
-    this.candidates.push({
-        x: Math.round(x),
-        y: Math.round(y)
+function shuffle(array) {
+    return array.sort(function () {
+        return 0.5 - RAND();
     });
-};
+}
+function baseVector(point1, point2) {
+    return {
+        x: point2.x - point1.x,
+        y: point2.y - point1.y
+    };
+}
 
+class Vector {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    multiply (scalar) {
+        return new Vector(this.x * scalar, this.y * scalar);
+    }
+    magnitude () {
+        return Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2));
+    }
+    truncate(max) {
+        let i = max / this.magnitude(),
+            velocity;
+        i = i < 1 ? i : 1;
+        velocity = this.multiply(i);
+
+        return velocity;
+    }
+}
+class Point {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    distSquare (point) {
+
+        //console.error(`this: ${this.x}`);
+        //console.error(`point: ${point.x}`);
+
+        let x = this.x - point.x,
+            y = this.y - point.y;
+
+        return x * x + y * y;
+    }
+    dist (point) {
+        return Math.sqrt(this.distSquare(point));
+    }
+}
+class Candidate {
+    constructor(id) {
+        this.id = id;
+        this.score = -Infinity;
+        this.coords = [];
+    }
+}
 class GeneticAlgorithm {
 
-    constructor(evaluate, generator, merger, mutator) {
-        this.evaluate = evaluate;
-        this.generator = generator;
-        this.merger = merger;
-        this.mutator = mutator;
+    constructor() {
         this.candidates = [];
     }
     best () {
         return this.candidates[0];
     }
-    initialize () {
+    initialize (initialPoolSize) {
         this.candidates = [];
+        this.addRandomCandidates(initialPoolSize);
+    }
+    addRandomCandidates(initialPoolSize) {
+        let candidatesLength = this.candidates.length;
+        for (let i = candidatesLength; i < candidatesLength + initialPoolSize; i++)
+            this.candidates.push(this.generator(i));
+
+    }
+    iterate (numberOfIterations, iterationAdditionalRandomGenerated, selectionNumber, mergedNumber, mutatedNumber) {
+        for (i = 0; i < numberOfIterations; i++)
+            this.runOneIteration(iterationAdditionalRandomGenerated, selectionNumber, mergedNumber, mutatedNumber);
+    }
+    runOneIteration (iterationAdditionalRandomGenerated, selectionNumber, mergedNumber, mutatedNumber) {
+        this.addRandomCandidates(iterationAdditionalRandomGenerated);
+        shuffle(this.candidates);
+        this.merge(mergedNumber);
+        shuffle(this.candidates);
+        this.mutate(mutatedNumber);
+
+
+    }
+    merge (mergedNumber) {
+        for (i = 0; i < mergedNumber; i++) {
+            let firstIndex = (2 * i) % this.candidates.length,
+                secondIndex = (2 * i + 1) % this.candidates.length;
+
+            this.candidates.push(this.merger(firstIndex, secondIndex));
+        }
+    }
+    mutate (mutatedNumber) {
+        for (i = 0; i < mutatedNumber; i++)
+            this.candidates.push(this.mutator());
+    }
+    merger (firstIndex, secondIndex) {
+
+        let id = this.candidates.length,
+            candidateLength = rnd(1, DEPTH),
+            candidateCoords = this.candidates[firstIndex].push(...this.candidates[secondIndex]);
+
+        shuffle(candidateCoords);
+
+        candidateCoords = candidateCoords.slice(0, candidateLength);
+
+        let candidate = new Candidate(id);
+
+       candidate.coords = candidateCoords;
+
+       return candidate;
+
+    }
+    mutator () {
+
+        let id = this.candidates.length,
+            randomPosition = this.createRandomPosition(),
+            candidateIndex = rnd(1, this.candidates.length),
+            candidateStep = rnd(1, this.candidates[candidateIndex].coords.length),
+            candidateCoords = cloneArray(this.candidates[candidateIndex].coords);
+
+        candidateCoords[candidateStep].x = randomPosition.x;
+        candidateCoords[candidateStep].y = randomPosition.y;
+
+        let candidate = new Candidate(id);
+
+        candidate.coords = candidateCoords;
+
+        return candidate;
+
+
+    }
+    generator (id) {
+        let candidate = new Candidate(id),
+            r = rnd(1, 3);
+
+        for (let i = 0; i < r; i++) {
+
+            let randomPosition = this.createRandomPosition();
+
+            candidate.coords.push({
+                x: Math.round(randomPosition.x),
+                y: Math.round(randomPosition.y)
+            });
+        }
+        return candidate;
+    };
+    createRandomPosition () {
+
+        let x = rnd(-1000, 1000),
+            y = rnd(-1000, 1000),
+            centerPosition = new Point(0, 0),
+            randomPosition = new Point(x, y),
+            base = baseVector(centerPosition, randomPosition),
+            direction = new Vector(base.x, base.y);
+
+        return direction.truncate(MY_MOVE_RANGE);
+    }
+    computeScores () {
+
+        let candidatesLength = this.candidates.length;
+
+        for (let i = 0; i < candidatesLength; i++) {
+            if (this.candidates[i].score === -Infinity)
+                this.candidates[i].score = this.fitnessFunction(this.candidates[i])
+        }
+
+    };
+    fitnessFunction (candidate) {
+
 
     }
 

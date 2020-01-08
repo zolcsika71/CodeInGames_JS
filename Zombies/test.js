@@ -116,8 +116,8 @@ function baseVector(point1, point2) {
         y: point2.y - point1.y
     };
 }
-function cloneClass(classToClone) {
-    return Object.assign(Object.create(Object.getPrototypeOf(classToClone)), classToClone);
+function cloneObject(objectToClone) {
+    return Object.assign(Object.create(Object.getPrototypeOf(objectToClone)), objectToClone);
 }
 function cloneArray(array) {
     return array.map(a => Object.assign({}, a));
@@ -130,9 +130,54 @@ class Zombie {
 
 
 
-for (let i = 0; i < 50; i++)
-    console.log(Math.max(0, Math.min(MY_MOVE_RANGE, rnd(-0.1 * MY_MOVE_RANGE, 2 * MY_MOVE_RANGE))));
+//for (let i = 0; i < 50; i++)
+//    console.log(Math.max(0, Math.min(MY_MOVE_RANGE, rnd(-0.1 * MY_MOVE_RANGE, 2 * MY_MOVE_RANGE))));
 
+let merger = (firstIndex, secondIndex) => {
+
+    return {
+        x: candidates[secondIndex].y,
+        y: candidates[firstIndex].x
+    }
+
+
+
+};
+
+let candidates = [];
+
+let candidate1 = [
+    {
+        x: 10,
+        y: 11
+    },
+],
+    candidate2 = [
+        {
+            x: 0,
+            y: 1
+        },
+    ];
+
+candidates.push(candidate1);
+candidates.push(candidate2);
+
+let candidateLength = 3,
+    zip = (a, b) => a.length ? [a[0], ...zip(b, a.slice(1))] : b,
+    candidate = zip(candidates[0], candidates[1]);
+
+console.log(`${BB(candidate.slice(0, candidateLength))}`);
+
+
+/*
+console.log(BB(candidates));
+
+let first = cloneObject(candidates[0]),
+    second = cloneObject(candidates[1]);
+
+[first.x, second.y] = [second.y, first.x];
+[second.x, first.y] = [first.y, second.x];
+*/
 
 
 
