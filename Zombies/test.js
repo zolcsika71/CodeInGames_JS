@@ -150,24 +150,33 @@ let candidate1 = [
     {
         x: 10,
         y: 11
-    },
+    }
 ],
     candidate2 = [
         {
             x: 0,
             y: 1
-        },
+        }
     ];
 
 candidates.push(candidate1);
 candidates.push(candidate2);
+
+if (-Infinity < -1)
+    console.log(`faszom`);
+
+/*
+let candidateCoords = candidates[0].concat(candidates[1]);
+console.log(`${BB(candidateCoords)}`);
+
+/*
 
 let candidateLength = 3,
     zip = (a, b) => a.length ? [a[0], ...zip(b, a.slice(1))] : b,
     candidate = zip(candidates[0], candidates[1]);
 
 console.log(`${BB(candidate.slice(0, candidateLength))}`);
-
+*/
 
 /*
 console.log(BB(candidates));

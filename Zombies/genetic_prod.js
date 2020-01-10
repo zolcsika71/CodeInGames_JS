@@ -1,19 +1,27 @@
 "use strict";
 
-
 const
     MY_KILL_RANGE = 2000,
     MY_MOVE_RANGE = 1000,
     ZOMBIE_KILL_RANGE = 400,
     DEPTH = 3,
     TIME = 100,
-    RAND = new Alea();
+    RAND = new Alea(),
+    GENERATOR_RANGE = 2000,
+    GENETIC = {
+        initialPoolSize: 100,
+        randomNumber: 5,
+        mergedNumber: 5,
+        mutatedNumber: 5
+    };
 
 let round = -1,
     now,
     sol_ct = -1,
     humans = [],
     zombies = [],
+    humanCount,
+    zombieCount,
     myX,
     myY;
 
@@ -96,16 +104,22 @@ function Alea() {
 function rnd(n, b = 0) {
     return Math.round(RAND() * (b - n) + n);
 }
-function toRadians(degrees) {
-    return degrees * (Math.PI / 180);
-}
 function shuffle(array) {
     return array.sort(function () {
         return 0.5 - RAND();
     });
 }
+function baseVector(point1, point2) {
+    return {
+        x: point2.x - point1.x,
+        y: point2.y - point1.y
+    };
+}
 function cloneArray(array) {
     return array.map(a => Object.assign({}, a));
+}
+function truncateValue(x, min, max) {
+    return Math.round(Math.max(min, Math.min(max, x)));
 }
 function fib(n) {
     let result = [0, 1];
@@ -115,15 +129,6 @@ function fib(n) {
         result.push(a + b);
     }
     return result[n];
-}
-function baseVector(point1, point2) {
-    return {
-        x: point2.x - point1.x,
-        y: point2.y - point1.y
-    };
-}
-function truncateValue(x, min, max) {
-    return Math.round(Math.max(min, Math.min(max, x)));
 }
 
 class Vector {
@@ -146,15 +151,89 @@ class Vector {
         return velocity;
     }
 }
+class Candidate {
+    constructor(id) {
+        this.id = id;
+        this.score = -Infinity;
+        this.coords = [];
+    }
+}
+class GeneticAlgorithm {
+    constructor() {
+        this.candidates = [];
+        this.evaluations = 0; // TODO is it necessary?
+    }
+    best () {
+        if (this.candidates.length > 0)
+            return this.candidates.reduce((p, c) => p.score > c.score ? p : c);
+        else
+            return new Candidate(0);
+    }
+    initialize (initialPoolSize) {
+        this.candidates = [];
+        this.addRandomCandidates(initialPoolSize);
+    }
+    resetScores () {
+        for (let candidate of this.candidates)
+            candidate.score = -Infinity;
+    }
+    addRandomCandidates(numberOfCandidates) {
+        for (let i = 0; i < numberOfCandidates; i++)
+            this.candidates.push(this.generator.run(i));
+    }
+    iterate (randomNumber, mergedNumber, mutatedNumber) {
+        return this.runOneIteration(randomNumber, mergedNumber, mutatedNumber);
+    }
+    runOneIteration (randomNumber, mergedNumber, mutatedNumber) {
+        // TODO shuffle?
+        this.addRandomCandidates(randomNumber);
+        shuffle(this.candidates);
+        this.merge(mergedNumber);
+        //shuffle(this.candidates);
+        this.mutate(mutatedNumber);
+        this.computeScores();
+        this.dropUnselected();
+        return this.best();
+    }
+    merge (mergedNumber) {
+        for (let i = 0; i < mergedNumber; i++) {
+            let firstIndex = (2 * i) % this.candidates.length,
+                secondIndex = (2 * i + 1) % this.candidates.length;
+
+            //console.error(`length: ${this.candidates.length} firstIndex: ${firstIndex} secondIndex: ${secondIndex}`);
+
+            this.candidates.push(this.merger(firstIndex, secondIndex));
+        }
+    }
+    mutate (mutatedNumber) {
+        for (let i = 0; i < mutatedNumber; i++)
+            this.candidates.push(this.mutator());
+    }
+    computeScores () {
+
+        let candidatesLength = this.candidates.length;
+
+        //console.error(`merger: ${BB(this.candidates[105])}`);
+
+        for (let i = 0; i < candidatesLength; i++) {
+            if (this.candidates[i].score === -Infinity) {
+                //console.error(`candidate: ${BB(this.candidates[i])}`);
+                this.candidates[i].score = this.evaluator(this.candidates[i]);
+                //console.error(`i: ${i} score: ${this.candidates[i].score}`);
+                this.evaluations++;
+            }
+        }
+    }
+    dropUnselected () {
+        this.candidates = this.candidates.filter(candidate => candidate.score > -1);
+    }
+}
 class Point {
     constructor(x, y) {
         this.x = x;
         this.y = y;
     }
     distSquare (point) {
-
-        //console.error(`this: ${this.x}`);
-        //console.error(`point: ${point.x}`);
 
         let x = this.x - point.x,
             y = this.y - point.y;
@@ -170,7 +249,6 @@ class Sim extends Point {
         super(x, y);
         this.cache = {};
         this.endGameCache = {};
-        this.solution = {};
         this.humans = cloneArray(humans);
         this.zombies = cloneArray(zombies);
         this.zombieKilled = 0;
@@ -199,26 +277,6 @@ class Sim extends Point {
         this.humans = cloneArray(humans);
         this.zombies = cloneArray(zombies);
     }
-    saveHuman () {
-        let closestDist = Infinity,
-            id;
-
-        for (let i = 0; i < this.humans.length; i++) {
-            let currentDist = this.dist(this.humans[i]);
-            if (currentDist < closestDist) {
-                closestDist = currentDist;
-                id = i;
-            }
-        }
-        let base = baseVector(this, this.humans[id]),
-            direction = new Vector(base.x, base.y);
-
-        //direction = direction.truncate(MY_MOVE_RANGE);
-        this.solution.x = this.x + Math.round(direction.x);
-        this.solution.y = this.y + Math.round(direction.y);
-        this.solution.score = 'SAVE HUMANS';
-
-    }
     move (target) {
         this.x = truncateValue(this.x + target.x, 0, 15999);
         this.y = truncateValue(this.y + target.y, 0, 8999);
@@ -229,59 +287,27 @@ class Sim extends Point {
         direction = direction.truncate(MY_MOVE_RANGE);
         this.move(direction);
     }
-    solve () {
+    getSolutionScore (candidate) {
 
-        let bestSolution = new Solution(this.x, this.y),
-            turns = rnd(1, DEPTH);
+        if (!candidate)
+            return;
 
-        console.error(`solutionLength: ${turns}`);
-        let zombiePos = new Point(this.zombies[0].nextX, this.zombies[0].nextY);
-        console.error(`dist: ${this.dist(zombiePos)}`);
-        console.error(`humansKilled ${this.humanKilled} zombiesKilled: ${this.zombieKilled}`);
+        this.save();
 
-        // simulate
-        while (Date.now() - now < TIME) {
-
-            sol_ct++;
-
-            let solution = new Solution(this.x, this.y);
-
-            // create a random solution
-            for (let i = 0; i < turns; i++)
-                solution.randomize();
-
-            this.save();
-
-            solution.score = this.getSolutionScore(solution);
-
-            this.load();
-
-            if (solution.score > bestSolution.score) {
-                bestSolution = solution;
-            }
-        }
-
-        if (bestSolution.score === -1)
-            this.saveHuman();
-        else {
-            console.error(`x: ${bestSolution.coords[0].x} y: ${bestSolution.coords[0].y}`);
-            this.solution.x = truncateValue(this.x + bestSolution.coords[0].x, 0, 15999);
-            this.solution.y = truncateValue(this.y + bestSolution.coords[0].y, 0, 8999);
-            this.solution.score = bestSolution.score;
-        }
-    }
-    getSolutionScore (solution) {
+        //console.error(`candidates:`);
 
         let score = 0,
             counter = 0,
             zombiesLength = this.zombies.length,
-            solutionLength = solution.coords.length;
+            candidateLength = candidate.coords.length;
 
         // move on solution, count score on the move
-        for (let i = 0; i < solutionLength; i++) {
-            this.move(solution.coords[i]);
+        for (let i = 0; i < candidateLength; i++) {
+            //console.error(`moveTo: ${BB(candidate.coords[i])}`);
+            this.move(candidate.coords[i]);
             score += this.score();
         }
+        //console.error(`score: ${score}`);
 
         // shuffle zombies array
         shuffle(this.zombies);
@@ -297,7 +323,11 @@ class Sim extends Point {
             }
         }
 
-        score = score / (counter + solutionLength);
+        score = score / (counter + candidateLength);
+
+        //console.error(`id: ${candidate.id} score: ${score} steps: ${counter + candidateLength}`);
+
+        this.load();
 
         return score;
     }
@@ -327,6 +357,7 @@ class Sim extends Point {
                 }
             }
         }
+        //console.error(`humanKilled: ${this.humanKilled} zombieKilled: ${this.zombieKilled} score: ${this.evaluate()}`);
         return this.evaluate();
     }
     evaluate () {
@@ -334,7 +365,7 @@ class Sim extends Point {
         let humansAlive = this.humans.length - this.humanKilled,
             score = 0;
 
-        if (humansAlive < 2)
+        if (humansAlive < 1)
             score = -1;
         else if (this.zombieKilled > 1)
             score = humansAlive * humansAlive * 10 * fib(this.zombieKilled + 3);
@@ -371,79 +402,14 @@ class Zombie extends Point {
         this.nextY = nextY;
     }
 }
-class Solution {
-    constructor(x, y) {
-        this.coords = [];
-        this.simX = x;
-        this.simY = y;
-        this.score = -Infinity;
-    }
-    selectRange () {
 
-        let rand = {
-            min: 0,
-            max: 359
-        };
-
-        // corner cases, side cases
-        if (this.simX <= 707 && this.simY <= 707) { // top left
-            rand.min = 270;
-            rand.max = 359;
-        } else if (this.simX >= 15293 && this.simY <= 707) { // top right
-            rand.min = 180;
-            rand.max = 270;
-        } else if (this.simX >= 15293 && this.simY >= 8293) { // bottom right
-            rand.min = 90;
-            rand.max = 180;
-        } else if (this.simX <= 707 && this.simY >= 8293) { // bottom left
-            rand.min = 0;
-            rand.max = 90;
-        } else if (this.simY === 0) { // top
-            rand.min = 180;
-            rand.max = 359;
-        } else if (this.simY === 8999) { // bottom
-            rand.min = 0;
-            rand.max = 180;
-        } else if (this.simX === 0) {  // left
-            let side = rnd(1);
-            if (side === 0) {
-                rand.min = 0;
-                rand.max = 90;
-            } else {
-                rand.min = 270;
-                rand.max = 359;
-            }
-        } else if (this.simX === 15999) { // right
-            rand.min = 90;
-            rand.max = 270;
-        }
-
-        return rand;
-    }
-    randomize () {
-
-        let rand = this.selectRange(),
-            turn = toRadians(rnd(rand.min, rand.max)),
-            randMagnitude =  rnd(-0.5 * MY_MOVE_RANGE, 2 * MY_MOVE_RANGE),
-            magnitude = truncateValue(randMagnitude, 0, MY_MOVE_RANGE),
-            x = magnitude * Math.cos(turn),
-            y = -1 * magnitude * Math.sin(turn);
-
-        this.coords.push({
-            x: Math.round(x),
-            y: Math.round(y)
-        });
-    }
-}
-
-let lastSolution = new Solution(0,0);
 
 let inputs = readline().split(' ');
 
 myX = parseInt(inputs[0]);
 myY = parseInt(inputs[1]);
 
-let humanCount = parseInt(readline());
+humanCount = parseInt(readline());
 
 for (let i = 0; i < humanCount; i++) {
     let inputs = readline().split(' '),
@@ -452,7 +418,7 @@ for (let i = 0; i < humanCount; i++) {
     humans.push(new Human(i, x, y));
 }
 
-let zombieCount = parseInt(readline());
+zombieCount = parseInt(readline());
 
 for (let i = 0; i < zombieCount; i++) {
     let inputs = readline().split(' '),
@@ -463,9 +429,88 @@ for (let i = 0; i < zombieCount; i++) {
     zombies.push(new Zombie(i, x, y, nextX, nextY));
 }
 
-let me = new Sim(myX, myY, humans, zombies);
+let me = new Sim(myX, myY, humans, zombies),
+    genetic = new GeneticAlgorithm(),
+    best = new Candidate(0);
 
-// game loop
+genetic.generator = {
+    run: function (id) {
+        let candidate = new Candidate(id),
+            r = rnd(1, 3);
+
+        for (let i = 0; i < r; i++) {
+
+            let randomPosition = this.createRandomPosition();
+
+            candidate.coords.push({
+                x: Math.round(randomPosition.x),
+                y: Math.round(randomPosition.y)
+            });
+        }
+        return candidate;
+    },
+    createRandomPosition: function () {
+        let x = rnd(-1000, 1000),
+            y = rnd(-1000, 1000),
+            centerPosition = new Point(0, 0),
+            randomPosition = new Point(x, y),
+            base = baseVector(centerPosition, randomPosition),
+            direction = new Vector(base.x, base.y);
+
+        return direction.truncate(MY_MOVE_RANGE);
+    }
+};
+genetic.merger = (firstIndex, secondIndex) => {
+
+    if (!genetic.candidates)
+        return;
+
+    let id = genetic.candidates.length,
+        candidateLength = rnd(1, DEPTH),
+        candidateCoords = genetic.candidates[firstIndex].coords.concat(genetic.candidates[secondIndex].coords);
+
+    shuffle(candidateCoords);
+
+    candidateCoords = candidateCoords.slice(0, candidateLength);
+
+    let candidate = new Candidate(id);
+
+    candidate.coords = candidateCoords;
+
+    //console.error(`return candidate: ${BB(candidate)}`);
+
+    return candidate;
+
+};
+genetic.mutator = () => {
+
+    if (!genetic.candidates)
+        return;
+
+    let id = genetic.candidates.length,
+        randomPosition = genetic.generator.createRandomPosition(),
+        candidateIndex = rnd(0, genetic.candidates.length - 1),
+        candidateStep = rnd(0, genetic.candidates[candidateIndex].coords.length - 1),
+        candidateCoords = cloneArray(genetic.candidates[candidateIndex].coords);
+
+    candidateCoords[candidateStep].x = Math.round(randomPosition.x);
+    candidateCoords[candidateStep].y = Math.round(randomPosition.y);
+
+    let candidate = new Candidate(id);
+
+    candidate.coords = candidateCoords;
+
+    //console.error(`mutator candidate: ${BB(candidate)}`);
+
+    return candidate;
+
+
+};
+genetic.evaluator = (candidate) => me.getSolutionScore(candidate);
+
+genetic.initialize(100);
+
+
 while (true) {
 
     round++;
@@ -502,21 +547,32 @@ while (true) {
 
         me.update(myX, myY, humans, zombies);
     }
-
-
     now = Date.now();
-    me.solve();
+
+    //console.error(`candidates.length ${genetic.candidates.length}`);
+
+    while (Date.now() - now < TIME) {
+
+        sol_ct++;
+
+        let solution = genetic.iterate(GENETIC.randomNumber, GENETIC.mergedNumber, GENETIC.mutatedNumber);
+
+        if (solution.score > best.score)
+            best = solution;
+    }
 
     console.error(`elapsed time: ${Date.now() - now}`);
 
-    console.error(`sol_ct ${round === 0 ? sol_ct : sol_ct / (round + 1)} score: ${me.solution.score}`);
+    console.error(`sol_ct ${round === 0 ? sol_ct : sol_ct / (round + 1)} score: ${best.score} evaluations: ${genetic.evaluations}`);
 
-    console.error(`humans: ${humans.length} zombies: ${zombies.length}`);
+    genetic.resetScores();
 
-    console.error(`zombie.coords: ${zombies[0].x} ${zombies[0].y}`);
-    console.error(`zombie.coords.next: ${zombies[0].nextX} ${zombies[0].nextY}`);
+    let x = truncateValue(myX + best.coords[0].x,  0, 15999),
+        y = truncateValue(myY + best.coords[0].y,  0, 8999);
 
-    console.log(`${me.solution.x} ${me.solution.y}`);
+    console.log(`${x} ${y}`);
+
 
 
 }
+
