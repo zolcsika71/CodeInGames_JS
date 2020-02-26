@@ -2,6 +2,7 @@
 
 const
     RAND = Alea(),
+    DEPTH = 3,
     MY_KILL_RANGE = 2000,
     MY_MOVE_RANGE = 1000;
 
@@ -133,50 +134,77 @@ class Zombie {
 //for (let i = 0; i < 50; i++)
 //    console.log(Math.max(0, Math.min(MY_MOVE_RANGE, rnd(-0.1 * MY_MOVE_RANGE, 2 * MY_MOVE_RANGE))));
 
-let merger = (firstIndex, secondIndex) => {
-
-    return {
-        x: candidates[secondIndex].y,
-        y: candidates[firstIndex].x
-    }
-
-
-
-};
 
 let candidates = [];
 
 let candidate1 = [
-    {
-        x: 10,
-        y: 11
-    }
-],
+        {
+            x: 10,
+            y: 11
+        },
+        {
+            x: 20,
+            y: 21
+        },
+        {
+            x: 30,
+            y: 31
+        }
+    ],
     candidate2 = [
         {
             x: 0,
             y: 1
+        },
+        {
+            x: 2,
+            y: 3
+        },
+        {
+            x: 4,
+            y: 5
         }
     ];
 
 candidates.push(candidate1);
 candidates.push(candidate2);
 
-if (-Infinity < -1)
-    console.log(`faszom`);
+let merger = (firstIndex, secondIndex) => {
+
+    let candidatesLength = candidates.length,
+        candidateCoords = candidates[firstIndex].concat(candidates[secondIndex]),
+        candidateCoordsLength = candidateCoords.length,
+        //indexStart = 4,
+        //candidateLength = 3;
+        indexStart = rnd(candidateCoordsLength - 1),
+        candidateLength = indexStart === candidateCoordsLength - 1 ? 1 : rnd(1, 3);
+
+    console.error(`candidateCoordsLength: ${candidateCoordsLength} indexStart: ${indexStart} candidateLength: ${candidateLength}`);
+
+    candidateCoords = candidateCoords.slice(indexStart, indexStart + candidateLength);
+
+
+
+
+    return candidateCoords;
+
+};
+
+//let candidate = merger (0, 1);
+//console.log(`${BB(candidate)}`);
 
 /*
 let candidateCoords = candidates[0].concat(candidates[1]);
 console.log(`${BB(candidateCoords)}`);
+*/
 
-/*
 
 let candidateLength = 3,
     zip = (a, b) => a.length ? [a[0], ...zip(b, a.slice(1))] : b,
     candidate = zip(candidates[0], candidates[1]);
 
 console.log(`${BB(candidate.slice(0, candidateLength))}`);
-*/
+
 
 /*
 console.log(BB(candidates));

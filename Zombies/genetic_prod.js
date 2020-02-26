@@ -1,23 +1,23 @@
 "use strict";
 
 const
-    MY_KILL_RANGE = 2000,
+    MY_KILL_RANGE_SQUARE = 4000000,
     MY_MOVE_RANGE = 1000,
-    ZOMBIE_KILL_RANGE = 400,
+    ZOMBIE_KILL_RANGE_SQUARE = 160000,
     DEPTH = 3,
     TIME = 100,
     RAND = new Alea(),
-    GENERATOR_RANGE = 2000,
-    GENETIC = {
+    GENERATOR_RANGE = 3000;
+
+let geneticParameters = {
         initialPoolSize: 100,
-        randomNumber: 5,
+        randomNumber: 0,
         mergedNumber: 5,
         mutatedNumber: 5
-    };
-
-let round = -1,
+    },
+    round = -1,
     now,
-    sol_ct = -1,
+    iterationCount = -1,
     humans = [],
     zombies = [],
     humanCount,
@@ -119,7 +119,7 @@ function cloneArray(array) {
     return array.map(a => Object.assign({}, a));
 }
 function truncateValue(x, min, max) {
-    return Math.round(Math.max(min, Math.min(max, x)));
+    return Math.max(min, Math.min(max, x));
 }
 function fib(n) {
     let result = [0, 1];
@@ -161,7 +161,7 @@ class Candidate {
 class GeneticAlgorithm {
     constructor() {
         this.candidates = [];
-        this.evaluations = 0; // TODO is it necessary?
+        this.evaluations = 0;
     }
     best () {
         if (this.candidates.length > 0)
@@ -185,9 +185,8 @@ class GeneticAlgorithm {
         return this.runOneIteration(randomNumber, mergedNumber, mutatedNumber);
     }
     runOneIteration (randomNumber, mergedNumber, mutatedNumber) {
-        // TODO shuffle?
         this.addRandomCandidates(randomNumber);
-        shuffle(this.candidates);
+        //shuffle(this.candidates);
         this.merge(mergedNumber);
         //shuffle(this.candidates);
         this.mutate(mutatedNumber);
@@ -197,10 +196,9 @@ class GeneticAlgorithm {
     }
     merge (mergedNumber) {
         for (let i = 0; i < mergedNumber; i++) {
-            let firstIndex = (2 * i) % this.candidates.length,
-                secondIndex = (2 * i + 1) % this.candidates.length;
-
-            //console.error(`length: ${this.candidates.length} firstIndex: ${firstIndex} secondIndex: ${secondIndex}`);
+            let candidatesLength = this.candidates.length,
+                firstIndex = rnd(candidatesLength - 1),
+                secondIndex = (firstIndex + rnd(candidatesLength - 1)) % candidatesLength;
 
             this.candidates.push(this.merger(firstIndex, secondIndex));
         }
@@ -213,13 +211,9 @@ class GeneticAlgorithm {
 
         let candidatesLength = this.candidates.length;
 
-        //console.error(`merger: ${BB(this.candidates[105])}`);
-
         for (let i = 0; i < candidatesLength; i++) {
             if (this.candidates[i].score === -Infinity) {
-                //console.error(`candidate: ${BB(this.candidates[i])}`);
                 this.candidates[i].score = this.evaluator(this.candidates[i]);
-                //console.error(`i: ${i} score: ${this.candidates[i].score}`);
                 this.evaluations++;
             }
         }
@@ -245,10 +239,10 @@ class Point {
     }
 }
 class Sim extends Point {
+    // TODO why cloneArray is necessary?
     constructor(x, y, humans, zombies) {
         super(x, y);
         this.cache = {};
-        this.endGameCache = {};
         this.humans = cloneArray(humans);
         this.zombies = cloneArray(zombies);
         this.zombieKilled = 0;
@@ -287,14 +281,12 @@ class Sim extends Point {
         direction = direction.truncate(MY_MOVE_RANGE);
         this.move(direction);
     }
-    getSolutionScore (candidate) {
+    getCandidateScore (candidate) {
 
         if (!candidate)
             return;
 
         this.save();
-
-        //console.error(`candidates:`);
 
         let score = 0,
             counter = 0,
@@ -303,21 +295,20 @@ class Sim extends Point {
 
         // move on solution, count score on the move
         for (let i = 0; i < candidateLength; i++) {
-            //console.error(`moveTo: ${BB(candidate.coords[i])}`);
             this.move(candidate.coords[i]);
-            score += this.score();
+            score += this.score(candidateLength - i);
         }
-        //console.error(`score: ${score}`);
 
         // shuffle zombies array
+        // TODO uncomment shuffle?
         shuffle(this.zombies);
 
         for (let i = 0; i < zombiesLength; i++) {
             if (this.zombies[i].alive) {
                 let zombiePos = new Point(this.zombies[i].nextX, this.zombies[i].nextY);
-                while (this.dist(zombiePos) > MY_KILL_RANGE) {
+                while (this.distSquare(zombiePos) > MY_KILL_RANGE_SQUARE) {
                     this.moveToZombie(i);
-                    score += this.score();
+                    score += this.score(1);
                     counter++;
                 }
             }
@@ -325,13 +316,11 @@ class Sim extends Point {
 
         score = score / (counter + candidateLength);
 
-        //console.error(`id: ${candidate.id} score: ${score} steps: ${counter + candidateLength}`);
-
         this.load();
 
         return score;
     }
-    score() {
+    score(candidateLength) {
 
         let zombieLength = this.zombies.length,
             humanLength = this.humans.length;
@@ -343,28 +332,29 @@ class Sim extends Point {
                 let zombiePos = new Point(this.zombies[i].nextX, this.zombies[i].nextY);
 
                 // zombie killed?
-                if (zombiePos.dist(this) <= MY_KILL_RANGE) {
+                if (zombiePos.distSquare(this) <= MY_KILL_RANGE_SQUARE) {
                     this.zombieKilled++;
                     this.zombies[i].alive = false;
                 }
 
                 // human killed?
+                // TODO check ZOMBIE_KILL_RANGE_SQUARE multiplier (ZOMBIE_KILL_RANGE_SQUARE * candidateLength * candidateLength)
                 for (let j = 0; j < humanLength; j++) {
-                    if (this.humans[j].alive && zombiePos.dist(this.humans[j]) <= ZOMBIE_KILL_RANGE) {
+                    if (this.humans[j].alive && zombiePos.distSquare(this.humans[j]) <= ZOMBIE_KILL_RANGE_SQUARE * candidateLength * candidateLength) {
                         this.humanKilled++;
                         this.humans[j].alive = false;
                     }
                 }
             }
         }
-        //console.error(`humanKilled: ${this.humanKilled} zombieKilled: ${this.zombieKilled} score: ${this.evaluate()}`);
         return this.evaluate();
     }
     evaluate () {
 
+
         let humansAlive = this.humans.length - this.humanKilled,
             score = 0;
-
+        // TODO check most compromised human?
         if (humansAlive < 1)
             score = -1;
         else if (this.zombieKilled > 1)
@@ -373,7 +363,6 @@ class Sim extends Point {
             score = humansAlive * humansAlive * 10;
 
         return score;
-
     }
 }
 class Human extends Point {
@@ -434,6 +423,9 @@ let me = new Sim(myX, myY, humans, zombies),
     best = new Candidate(0);
 
 genetic.generator = {
+
+    // TODO it costs 3-7 rnd
+
     run: function (id) {
         let candidate = new Candidate(id),
             r = rnd(1, 3);
@@ -450,8 +442,8 @@ genetic.generator = {
         return candidate;
     },
     createRandomPosition: function () {
-        let x = rnd(-1000, 1000),
-            y = rnd(-1000, 1000),
+        let x = rnd(-GENERATOR_RANGE, GENERATOR_RANGE),
+            y = rnd(-GENERATOR_RANGE, GENERATOR_RANGE),
             centerPosition = new Point(0, 0),
             randomPosition = new Point(x, y),
             base = baseVector(centerPosition, randomPosition),
@@ -462,27 +454,34 @@ genetic.generator = {
 };
 genetic.merger = (firstIndex, secondIndex) => {
 
+    // TODO it costs 4 rnd
+
     if (!genetic.candidates)
         return;
 
-    let id = genetic.candidates.length,
-        candidateLength = rnd(1, DEPTH),
-        candidateCoords = genetic.candidates[firstIndex].coords.concat(genetic.candidates[secondIndex].coords);
+    let candidatesLength = genetic.candidates.length,
+        id  = candidatesLength,
+        //zip = (a, b) => a.length ? [a[0], ...zip(b, a.slice(1))] : b,
+        //candidateCoords = zip(genetic.candidates[firstIndex].coords, genetic.candidates[secondIndex].coords),
+        candidateCoords = genetic.candidates[firstIndex].coords.concat(genetic.candidates[secondIndex].coords),
+        candidateCoordsLength = candidateCoords.length,
+        //candidateLength = rnd(1, candidateCoords.length);
+        indexStart = rnd(candidateCoordsLength - 1),
+        candidateLength = indexStart === candidateCoordsLength - 1 ? 1 : rnd(1, DEPTH);
 
-    shuffle(candidateCoords);
-
-    candidateCoords = candidateCoords.slice(0, candidateLength);
+    candidateCoords = candidateCoords.slice(indexStart, indexStart + candidateLength);
+    //candidateCoords = candidateCoords.slice(0, candidateLength);
 
     let candidate = new Candidate(id);
 
     candidate.coords = candidateCoords;
 
-    //console.error(`return candidate: ${BB(candidate)}`);
-
     return candidate;
 
 };
 genetic.mutator = () => {
+
+    // TODO it costs 4 rnd
 
     if (!genetic.candidates)
         return;
@@ -492,6 +491,8 @@ genetic.mutator = () => {
         candidateIndex = rnd(0, genetic.candidates.length - 1),
         candidateStep = rnd(0, genetic.candidates[candidateIndex].coords.length - 1),
         candidateCoords = cloneArray(genetic.candidates[candidateIndex].coords);
+
+    //console.error(`candidateIndex: ${candidateIndex} candidate: ${BB(genetic.candidates[candidateIndex])}`);
 
     candidateCoords[candidateStep].x = Math.round(randomPosition.x);
     candidateCoords[candidateStep].y = Math.round(randomPosition.y);
@@ -506,9 +507,9 @@ genetic.mutator = () => {
 
 
 };
-genetic.evaluator = (candidate) => me.getSolutionScore(candidate);
+genetic.evaluator = (candidate) => me.getCandidateScore(candidate);
 
-genetic.initialize(100);
+genetic.initialize(geneticParameters.initialPoolSize);
 
 
 while (true) {
@@ -549,13 +550,17 @@ while (true) {
     }
     now = Date.now();
 
-    //console.error(`candidates.length ${genetic.candidates.length}`);
+    let poolLength = 0;
 
     while (Date.now() - now < TIME) {
 
-        sol_ct++;
+        iterationCount++;
 
-        let solution = genetic.iterate(GENETIC.randomNumber, GENETIC.mergedNumber, GENETIC.mutatedNumber);
+        poolLength = genetic.candidates.length;
+
+        geneticParameters.randomNumber = geneticParameters.initialPoolSize - poolLength < 0 ? geneticParameters.randomNumber : geneticParameters.initialPoolSize - poolLength;
+
+        let solution = genetic.iterate(geneticParameters.randomNumber, geneticParameters.mergedNumber, geneticParameters.mutatedNumber);
 
         if (solution.score > best.score)
             best = solution;
@@ -563,7 +568,9 @@ while (true) {
 
     console.error(`elapsed time: ${Date.now() - now}`);
 
-    console.error(`sol_ct ${round === 0 ? sol_ct : sol_ct / (round + 1)} score: ${best.score} evaluations: ${genetic.evaluations}`);
+    console.error(`iterations ${round === 0 ? iterationCount : iterationCount / (round + 1)} score: ${best.score} evaluations: ${genetic.evaluations}`);
+
+    console.error(`poolSize: ${poolLength}`);
 
     genetic.resetScores();
 

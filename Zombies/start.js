@@ -340,7 +340,7 @@ class Sim extends Point {
                 let zombiePos = new Point(this.zombies[i].nextX, this.zombies[i].nextY);
                 while (this.dist(zombiePos) > MY_KILL_RANGE) {
                     this.moveToZombie(i);
-                    //console.error(`x: ${this.x} y: ${this.y} not in range: ${this.dist(zombiePos) > MY_KILL_RANGE}`);
+                    //console.error(`x: ${this.x} y: ${this.y} not in range: ${this.dist(zombiePos) > MY_KILL_RANGE_SQUARE}`);
                     endGameScore += this.score();
                     counter++
                 }
