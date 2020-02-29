@@ -4,19 +4,13 @@
  **/
 
 
-function BB(x) {
-    return JSON.stringify(x, null, 2);
+let line = [];
+
+for (let i = 0; i < 3; i++) {
+    line[i] = readline();
 }
 
-for (let i = 0; i < 11; i++) {
-    const pattern = readline();
-    
-
-
-
+for (let i = 0; i < 3; ++i) {
+        
 }
 
-// Write an action using console.log()
-// To debug: console.error('Debug messages...');
-
-console.log('UNSOLVABLE');
