@@ -1,53 +1,84 @@
 "use strict";
 
+const
+    L_WIDTH = 4,
+    L_HEIGHT = 5,
+    TEXT = "FATHER?",
+    ABC_LENGTH = 27,
+    abcId = {
+        A: 0, B: 1, C: 2, D: 3, E: 4, F: 5, G: 6, H: 7, I: 8, J: 9, K: 10, L: 11, M: 12, N: 13, O: 14, P: 15, Q: 16, R: 17, S: 18, T: 19, U: 20, V: 21, W: 22, X: 23, Y: 24, Z: 25
+    };
+
 let str = [];
+
 str.push(" #  ##   ## ##  ### ###  ## # # ###  ## # # #   # # ###  #  ##   #  ##   ## ### # # # # # # # # # # ### ### ");
 str.push("# # # # #   # # #   #   #   # #  #    # # # #   ### # # # # # # # # # # #    #  # # # # # # # # # #   #   # ");
 str.push("### ##  #   # # ##  ##  # # ###  #    # ##  #   ### # # # # ##  # # ##   #   #  # # # # ###  #   #   #   ## ");
 str.push("# # # # #   # # #   #   # # # #  #  # # # # #   # # # # # # #    ## # #   #  #  # # # # ### # #  #  #       ");
 str.push("# # ##   ## ##  ### #    ## # # ###  #  # # ### # # # #  #  #     # # # ##   #  ###  #  # # # #  #  ###  #  ");
 
-const
-    L_WIDTH = 4,
-    L_HEIGHT = 5,
-    TEXT = "E",
-    ABC_LENGTH = 27;
-
-
-
 let letters = [],
-    rowLength;
+    rows = [L_HEIGHT];
 
-function testLetters(letters) {
-    console.error(`${letters.length}`);
-    for (let i = 0; i < letters.length; i += L_WIDTH) {
-        //let lettersRow = letters[i];
-        //if (!rowLength)
-            //rowLength = lettersRow.length;
-        //console.error(`${lettersRow.length}`);
+function createLetters(letters) {
+    for (let j = 0; j < ABC_LENGTH * L_WIDTH; j += L_WIDTH) {
+        for (let i = 0; i < L_HEIGHT; i++) {
 
-        //console.error(`${i} ${j}`);
-        console.error(`${letters[i][L_WIDTH]}`);
+            let row = str[i];
+            let slice = row.slice(j, j + L_WIDTH);
+            letters.push(slice);
+
+        }
     }
 }
 
-function BB(x) {
-    return JSON.stringify(x, null, 2);
+function testLetters(letters, letterPosition) {
+    for (let i = letterPosition * L_HEIGHT; i < letterPosition * L_HEIGHT + L_HEIGHT; i++)
+        console.error(`${letters[i]}`);
 }
 
-for (let i = 0; i < L_HEIGHT; i++) {
+function initRows(rows) {
+    for (let i = 0; i < L_HEIGHT; i++)
+        rows[i] = '';
+}
 
-    let row = str[i];
+function letterToRows(rows, letters, letterPosition) {
+    let index = 0;
+    for (let i = letterPosition * L_HEIGHT; i < letterPosition * L_HEIGHT + L_HEIGHT; i++) {
+        rows[index] = rows[index].concat(letters[i]);
+        index++;
+    }
 
-    for (let j = 0; j < row.length; j += L_WIDTH) {
-        let slice = row.slice(j, j + L_WIDTH);
-        //console.error(`i: ${i} j: ${j} slice: ${slice}`);
-        letters.push(i, slice);
+}
+
+function createRows(rows, letters, abcId, string) {
+    let letter;
+
+    for (let i = 0; i < string.length; i++) {
+        letter = string.slice(i, i + 1);
+        console.error(letter, abcId[letter]);
+        if (abcId[letter] !== undefined)
+            letterToRows(rows, letters, abcId[letter]);
+        else
+            letterToRows(rows, letters, ABC_LENGTH - 1);
     }
 }
 
-testLetters(letters);
-//console.error(`${BB(letters)}`);
+function printRows(rows) {
+    for(let row of rows)
+        console.log(row);
+
+}
+
+createLetters(letters);
+//testLetters(letters, 26);
+initRows(rows);
+createRows(rows, letters, abcId, TEXT);
+printRows(rows);
+
+
+
+
 
 
 

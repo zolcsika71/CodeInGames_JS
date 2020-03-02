@@ -93,6 +93,10 @@ function Alea() {
 
     } (Array.prototype.slice.call(arguments)));
 }
+function fastRand() {
+    let seed = Date.now();
+    seed = 
+}
 function rnd(n, b = 0) {
     return Math.round(RAND() * (b - n) + n);
 }
