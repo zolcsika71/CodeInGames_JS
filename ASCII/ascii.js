@@ -73,8 +73,6 @@ function printRows(rows) {
         console.log(row);
 }
 
-
-
 createABC(ABC);
 //testInput(ABC, L_WIDTH, L_HEIGHT, TEXT);
 createLetters(letters);
