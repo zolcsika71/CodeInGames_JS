@@ -160,7 +160,7 @@ class Unit extends Point {
     }
     collisionTime (unit) {
 
-        if (this.vx === unit.vx && this.vy === unit.vy) // Optimisation. Objects with the same speed will never collide
+        if (this.vx === unit.vx && this.vy === unit.vy) // Optimisation. Objects with the same maxSpeed will never collide
             return -1;
 
         // We place ourselves in the reference frame of unit. unit is therefore stationary and is at (0,0)

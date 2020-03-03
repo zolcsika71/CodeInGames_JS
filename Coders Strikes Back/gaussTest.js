@@ -67,13 +67,13 @@ let type = 'flee',
         mu: 0, // location parameter
         sigma: 30 // scale parameter
     },
-    break: { // x: speed
+    break: { // x: maxSpeed
         a: 0, // min x
         b: 600, // max x
         mu: 0, // location parameter
         sigma: 100 // scale parameter
     },
-    flee: { // x: speed
+    flee: { // x: maxSpeed
         a: 0, // min x
         b: dist, // max x
         mu: 0, // location parameter

@@ -101,7 +101,7 @@ class Unit extends Point {
     }
     collision (unit) {
 
-        if (this.vx === unit.vx && this.vy === unit.vy) // Optimisation. Objects with the same speed will never collide
+        if (this.vx === unit.vx && this.vy === unit.vy) // Optimisation. Objects with the same maxSpeed will never collide
             return null;
 
         let distanceSquare = this.distSquare(unit), // Square of the distance
@@ -117,13 +117,13 @@ class Unit extends Point {
             vy = this.vy - unit.vy,
             myPoint = new Point(x, y),
             unitPoint = new Point(0, 0),
-            closestPoint = unitPoint.closest(myPoint, new Point(x + vx, y + vy)), // We look for the closest point to unit (which is in (0,0)) on the line described by our speed vector
-            unitPointDist = unitPoint.distSquare(closestPoint), // Square of the distance between unit and the closest point to unit on the line described by our speed vector
+            closestPoint = unitPoint.closest(myPoint, new Point(x + vx, y + vy)), // We look for the closest point to unit (which is in (0,0)) on the line described by our maxSpeed vector
+            unitPointDist = unitPoint.distSquare(closestPoint), // Square of the distance between unit and the closest point to unit on the line described by our maxSpeed vector
             myPointDist = myPoint.distSquare(closestPoint); // Square of the distance between us and that point
 
         // If the distance between unit and this line is less than the sum of the radius, there might be a collision
         if (unitPointDist < sumRadiusSquare) {
-            let length = Math.sqrt(Math.pow(vx, 2) + Math.pow(vy, 2)), // Our speed on the line
+            let length = Math.sqrt(Math.pow(vx, 2) + Math.pow(vy, 2)), // Our maxSpeed on the line
                 backDist = Math.sqrt(sumRadiusSquare - unitPointDist);
 
             // We move along the line to find the point of impact

@@ -11,7 +11,7 @@ const
             b: 0, // middle
             c: 30 // bell width
         },
-        break: { // variable: speed
+        break: { // variable: maxSpeed
             a: 100,
             b: 0,
             c: 200

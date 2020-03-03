@@ -30,7 +30,7 @@ const
             mu: 0, // location parameter
             sigma: 100 // scale parameter
         },
-        break: { // x: speed
+        break: { // x: maxSpeed
             a: 0, // min x
             b: 600, // max x
             mu: 0, // location parameter
@@ -42,7 +42,7 @@ const
             mu: 0, // location parameter
             sigma: 20 // scale parameter
         },
-        flee: { // x: speed
+        flee: { // x: maxSpeed
             a: 0, // min x
             b: fleeDist, // max x
             mu: 0, // location parameter
@@ -592,7 +592,7 @@ while (true) {
     flee = (myLastAngle <= Math.abs(checkpoint.angle) && Math.abs(checkpoint.angle) >= 5 && checkpoint.distance < fleeDist)
         || (checkpoint.distance > lastNextCPDist && checkpoint.distance < breakDist);
 
-    // calculate max speed
+    // calculate max maxSpeed
     if (mySpeed > maxSpeed)
         maxSpeed = mySpeed;
 
@@ -611,7 +611,7 @@ while (true) {
     // set thrust
     thrust = myPod.shield ? 'SHIELD' : adjustThrust(checkpoint, boostTarget, flee, mySpeed);
 
-    // record max speed
+    // record max maxSpeed
     if (mySpeed > maxSpeed && thrust !== 'BOOST')
         maxSpeed = mySpeed;
 

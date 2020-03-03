@@ -20,7 +20,7 @@ const
             mu: 0, // location parameter
             sigma: 25 // scale parameter
         },
-        break: { // x: speed
+        break: { // x: maxSpeed
             a: 0, // min x
             b: 600, // max x
             mu: 0, // location parameter

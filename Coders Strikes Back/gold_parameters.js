@@ -17,8 +17,8 @@ while (true) {
         var inputs = readline().split(' ');
         const x = parseInt(inputs[0]); // x position of your pod
         const y = parseInt(inputs[1]); // y position of your pod
-        const vx = parseInt(inputs[2]); // x speed of your pod
-        const vy = parseInt(inputs[3]); // y speed of your pod
+        const vx = parseInt(inputs[2]); // x maxSpeed of your pod
+        const vy = parseInt(inputs[3]); // y maxSpeed of your pod
         const angle = parseInt(inputs[4]); // angle of your pod
         const nextCheckPointId = parseInt(inputs[5]); // next check point id of your pod
     }
@@ -26,8 +26,8 @@ while (true) {
         var inputs = readline().split(' ');
         const x2 = parseInt(inputs[0]); // x position of the opponent's pod
         const y2 = parseInt(inputs[1]); // y position of the opponent's pod
-        const vx2 = parseInt(inputs[2]); // x speed of the opponent's pod
-        const vy2 = parseInt(inputs[3]); // y speed of the opponent's pod
+        const vx2 = parseInt(inputs[2]); // x maxSpeed of the opponent's pod
+        const vy2 = parseInt(inputs[3]); // y maxSpeed of the opponent's pod
         const angle2 = parseInt(inputs[4]); // angle of the opponent's pod
         const nextCheckPointId2 = parseInt(inputs[5]); // next check point id of the opponent's pod
     }

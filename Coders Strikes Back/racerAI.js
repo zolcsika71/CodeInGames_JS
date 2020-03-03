@@ -42,7 +42,7 @@ var indexOf = checkpoint => {
     return -1;
 }
 
-// Adjust speed to distance from checkpoint
+// Adjust maxSpeed to distance from checkpoint
 var adjustSpeed = (distance, angle) => {
     // Log values for debugging
     log('angle', angle);
@@ -165,7 +165,7 @@ while (true) {
         goal = calculateGoal(nextCheck, checkP);
     }
 
-    // Calculate the speed
+    // Calculate the maxSpeed
     let speed = adjustSpeed(distanceBetween(racer, goal), nextCheckpointAngle);
 
     // Send command to the racer
