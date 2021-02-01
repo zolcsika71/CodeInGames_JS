@@ -1,0 +1,29 @@
+{
+  "name": "CodeInGames",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "dependencies": {
+    "line-reader": "^0.4.0",
+    "node-fetch": "^2.6.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zolcsika71/CodeInGames.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zolcsika71/CodeInGames/issues"
+  },
+  "homepage": "https://github.com/zolcsika71/CodeInGames#readme",
+  "type": "module"
+}

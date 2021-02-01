@@ -82,7 +82,7 @@ function Alea() {
 		};
 		random.fract53 = function () {
 			return random() +
-                (random() * 0x200000 | 0) * 1.1102230246251565e-16; // 2^-53
+				(random() * 0x200000 | 0) * 1.1102230246251565e-16; // 2^-53
 		};
 		random.version = 'Alea 0.9';
 		random.args = args;
@@ -161,17 +161,7 @@ function printCandidates(candidates, length=candidates.length) {
 	}
 }
 
-function moveToZombie (me, zombie) {
 
-	let direction = me.baseVectorTo(zombie);
-
-	direction = direction.truncate(MY_MOVE_RANGE);
-	direction = new Vector(Math.floor(direction.x), Math.floor(direction.y));
-
-	//this.move(direction);
-
-	return direction;
-}
 
 class Candidate {
 	constructor(id) {
@@ -866,98 +856,44 @@ class GeneticAlgorithm extends CandidateOperator {
 	}
 }
 
-//let test = [{'value':5}, {'value':2}, {'value':3}, {'value':4}, {'value':5}];
-
-
-
-let candidates = [];
-for (let i = 0; i < 2; i++) {
-	let candidate = new Candidate(i);
-	candidate.score = rnd(3);
-	candidates.push(candidate);
-}
-
-shuffle(candidates);
-
-console.log(`${getObjectAttr(candidates)}`);
-
-/*let result = candidates.reduce((acc, candidate) => {
-	if (!acc.length) {
-		acc.push([candidate, 1]);
-	} else {
-		let lastPushedArray = acc[acc.length-1];
-		if (lastPushedArray[0] === candidate) {
-			acc[acc.length-1][1]++;
-		} else {
-			acc.push([candidate, 1]);
+let humans = [],
+	zombies = [],
+	me = {
+		x: 0,
+		y: 0,
+	},
+	humanNumber = 1,
+	humanCoords = [
+		{
+			x: 8250,
+			y: 4500,
 		}
-	}
-	return acc;
-}, []);*/
+	],
+	zombieNumber = 1,
+	zombieCoords = [
+		{
+			x: 8250,
+			y: 8999,
+			nextX: 8250,
+			nextY: 8599
+		}
+	],
+	geneticParameters = {
+		initialPoolSize: 100,
+		mergedNumber: 10,
+		mutatedNumber: 10,
+	};
 
 
-/*console.log(`${getObjectAttr(candidates)}`);
+for (let i = 0; i < humanNumber; i++)
+	humans.push(new Human(i, humanCoords[i].x, humanCoords[i].y));
 
-let topScore = Math.max.apply(null, candidates.map(candidate => candidate.score));
-candidates = candidates.filter(candidate => candidate.score === topScore);
+for (let i = 0; i < zombieNumber; i++)
+	zombies.push(new Zombie(i, zombieCoords[i].x, zombieCoords[i].y, zombieCoords[i].nextX, zombieCoords[i].nextY));
 
-console.log(`${getObjectAttr(candidates)}`);*/
+let GA = new GeneticAlgorithm(me.x, me.y, humans, zombies);
 
-/*for (let i = 0; i < 50; i++)
-	console.log(`${fib(i)}`);*/
-
-
-
-
-/*
-while (true) {
-	console.error(`${rnd(1)}`);
-}
-*/
-
-
-/*
-let test = [{'x':1, 'y':1}, {'x':2, 'y':3}],
-	test1 = [{'x':1, 'y':1}, {'x':2, 'y':2}];
-
-console.log(`${JSON.stringify(test) === JSON.stringify(test1) }`);
-
-
-
-console.log(`${getObjectAttr(test)}`);
-console.log(`${getObjectAttr(test1)}`);
-*/
-
-
-//console.log(`${truncateValue(30, 1, 50)}`);
-
-
-
-
-/*
-let test = [{'value':5}, {'value':2}, {'value':3}, {'value':4}, {'value':5}];
-
-
-let result = test.filter(item => item.value > 3);
-
-
-console.log(`${getObjectParams(result)}`);
-console.log(`${result}`);
-*/
-
-
-/*let me = new Point(8000, 7999),
-	zombie = new Point(8280, 7265);
-
-
-console.log(`${me.dist(zombie)}`);
-console.log(`${getObjectAttr(moveToZombie(me, zombie))}`);*/
-
-
-
-
-
-
-
+//console.log(`${getObjectAttr(GA.humans)}`);
+//console.log(`${getObjectAttr(GA.zombies)}`);
 
 

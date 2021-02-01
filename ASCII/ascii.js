@@ -74,7 +74,7 @@ function printRows(rows) {
 }
 
 createABC(ABC);
-//testInput(ABC, L_WIDTH, L_HEIGHT, TEXT);
+//testData(ABC, L_WIDTH, L_HEIGHT, TEXT);
 createLetters(letters);
 initRows(rows);
 createRows(rows, letters, abcId, TEXT);

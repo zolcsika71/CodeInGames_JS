@@ -1,5 +1,34 @@
 'use strict';
 
+// SOLVED:
+//
+
+
+// STATUS:
+//
+// GENERATOR_RANGE = 3500
+//
+// geneticParameters = {
+// 		initialPoolSize: 100,
+// 		mergedNumber: 100,
+// 		mutatedNumber: 100,
+// 	}
+
+
+
+// TODO
+//
+// check candidates generate
+//
+// TODO finish evaluation
+//
+//
+//
+// TODO DEBUG.best.sameCandidates: filter the same candidates try it in test (two object of array is the same, when?)
+//
+// TODO make inputs from file (maybe a simulator...)
+
+
 const
 	FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89,
 		144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946,
@@ -12,7 +41,83 @@ const
 	HUMAN_NEXT_ROUND_VALUE = 1,
 	DEPTH = 3,
 	RAND = new Alea(),
-	GENERATOR_RANGE = 3500;
+	GENERATOR_RANGE = 3500,
+	DEBUG_MODE = true,
+	DEBUG = {
+		endTurn: true,
+		noCandidates: false,
+		catch: false,
+		initialCandidates: {
+			candidates: false,
+			tooLongCandidateCoords: false,
+		},
+		runOneIteration: {
+			candidates: false,
+			bestCandidate: false,
+			tooLongCandidateCoords: false,
+		},
+		input: {
+			fromEngine: true,
+			display: true,
+			full: false
+		},
+		generator: {
+			run: false,
+			newCandidateId: false
+		},
+		createCandidate: {
+			candidate: false,
+		},
+		merger: {
+			run: false,
+			printResult: false,
+			newCandidateId: false
+		},
+		mutator: {
+			run: false,
+			printResult: false,
+			newCandidateId: false
+		},
+		reCycler: {
+			run: false,
+			id: false,
+			coordsLength: false,
+			printResult: false,
+			newCandidateId: false
+		},
+		dropUnselected: {
+			candidates: false,
+			candidatesLength: false,
+		},
+		computeScores: {
+			candidates: false,
+			preCheck: false,
+			evaluator: false,
+			candidateScores: false,
+		},
+		getCandidateScore: {
+			dropped: false,
+			candidate: false,
+			candidateScore: false,
+		},
+		evaluation: {
+			round: 0, // 0 => false
+			numberOfCandidate: 3, // first x candidate
+		},
+		best: {
+			run: false,
+			candidate: false,
+			sameCandidates: false,
+		}
+	};
+
+let
+	geneticParameters = {
+		initialPoolSize: 100,
+		mergedNumber: 10,
+		mutatedNumber: 10,
+	},
+	log = '';
 
 function getObjectAttr(x) {
 	return JSON.stringify(x, null, 2);
@@ -103,25 +208,19 @@ function truncateValue(x, min, max) {
 	return Math.max(min, Math.min(max, x));
 }
 function fib(n) {
-	let result = [0, 1];
-	for (let i = 2; i <= n; i++) {
-		let a = result[i - 1],
-			b = result[i - 2];
-		result.push(a + b);
-	}
-	return result[n];
-}
-function fibConst(n) {
 	return FIB[n];
 }
-function getInput() {
+function getData() {
+
+	let myX,
+		myY,
+		humans = [],
+		zombies = [];
 
 	let inputs = readline().split(' ');
 
-	let humans = [],
-		zombies = [],
-		myX = parseInt(inputs[0]),
-		myY = parseInt(inputs[1]);
+	myX = parseInt(inputs[0]);
+	myY = parseInt(inputs[1]);
 
 	let humanCount = parseInt(readline());
 
@@ -144,7 +243,6 @@ function getInput() {
 			nextY = parseInt(inputs[4]);
 		zombies.push(new Zombie(id, x, y, nextX, nextY));
 	}
-
 	return {
 		x: myX,
 		y: myY,
@@ -152,32 +250,47 @@ function getInput() {
 		zombies: zombies
 	};
 }
-function printCandidates(candidates, length=candidates.length) {
-	console.error(`candidatesLength: ${candidates.length}`);
-	for (let i = 0; i <= length; i++) {
-		console.error(`no: ${i} id:${candidates[i].id}`);
-		for (let coord of candidates[i].coords)
-			console.error(`     x: ${coord.x}, y: ${coord.y} score: ${candidates[i].score}`);
+
+function printCandidates(title, candidates, length = candidates.length, coords = true) {
+
+
+	console.error(`${title}`);
+
+	if (candidates.length === undefined) {
+		// print candidate attributes
+		console.error(`     no: SINGLE id:${candidates.id} score: ${candidates.score.toFixed(3)} coordsLength: ${candidates.coords.length} madeBy: ${candidates.madeBy}`);
+		// print candidate data
+		if (coords) {
+			for (let coord of candidates.coords)
+				console.error(`      x: ${coord.x}, y: ${coord.y}`);
+		}
+	} else if (candidates.length === 0)
+		// no candidate
+		console.error('empty array');
+	else {
+		// print candidates attributes
+		console.error(`candidatesLength: ${candidates.length}`);
+		length = Math.min(candidates.length, length);
+		// print candidates data
+		for (let i = 0; i < length; i++) {
+			// print candidate attributes
+			console.error(`    no: ${i} id:${candidates[i].id} score: ${candidates[i].score.toFixed(3)} coordsLength: ${candidates[i].coords.length} madeBy: ${candidates[i].madeBy}`);
+			// print candidate data
+			if (coords) {
+				for (let coord of candidates[i].coords)
+					console.error(`      x: ${coord.x}, y: ${coord.y}`);
+			}
+		}
 	}
 }
 
-function moveToZombie (me, zombie) {
-
-	let direction = me.baseVectorTo(zombie);
-
-	direction = direction.truncate(MY_MOVE_RANGE);
-	direction = new Vector(Math.floor(direction.x), Math.floor(direction.y));
-
-	//this.move(direction);
-
-	return direction;
-}
 
 class Candidate {
 	constructor(id) {
 		this.id = id;
 		this.coords = [];
 		this.score = -Infinity;
+		this.madeBy = '';
 	}
 }
 class Vector {
@@ -446,7 +559,7 @@ class Sim extends Point {
 					}
 
 					log = `     ByCoords => ${humansAlive}, ${zombiesKilled}, ${humansAliveNextRound}`
-						+ ` score: ${score} killed: ${killedZombiesId}`;
+								+ ` score: ${score} killed: ${killedZombiesId}`;
 
 					console.error(log);
 
@@ -542,7 +655,7 @@ class CandidateOperator extends Sim {
 		candidateCoords = candidateCoords.slice(0, candidateLength);
 
 		candidate.coords = candidateCoords;
-
+		
 		if (DEBUG_MODE && DEBUG.merger.printResult) {
 			console.error('merger.printResult: ');
 			printCandidates('original', candidate1);
@@ -639,7 +752,7 @@ class GeneticAlgorithm extends CandidateOperator {
 		for (let i = 0; i < zombiesLength; i++) {
 			let zombiePos = new Point(this.zombies[i].nextX, this.zombies[i].nextY),
 				coord = this.moveToTarget(zombiePos,false);
-
+			
 			if (DEBUG_MODE && DEBUG.createCandidate.candidate) {
 				console.error(`toZombies (${this.zombies[i].id}) - round: ${round} iterationCount: ${iterationCount}`);
 			}
@@ -672,7 +785,7 @@ class GeneticAlgorithm extends CandidateOperator {
 
 		this.candidates.push(this.createCandidate(coord, id));
 
-
+		
 	}
 	merge (mergedNumber = this.candidates.length) {
 
@@ -821,7 +934,7 @@ class GeneticAlgorithm extends CandidateOperator {
 				//if (!wrongCandidatesBefore)
 				//	console.error('runOneIteration.tooLongCandidateCoords - ALL candidates good');
 			}
-
+			
 			this.merge(mergedNumber);
 			this.mutate(mutatedNumber);
 			this.addRandomCandidates(initialPoolSize - this.candidates.length);
@@ -866,98 +979,142 @@ class GeneticAlgorithm extends CandidateOperator {
 	}
 }
 
-//let test = [{'value':5}, {'value':2}, {'value':3}, {'value':4}, {'value':5}];
+let round = 0,
+	solution = '',
+	iterationCount = 0,
+	allIterations = 0,
+	allEvaluations = 0;
 
+// eslint-disable-next-line no-constant-condition
+while (true) {
 
+	let data;
 
-let candidates = [];
-for (let i = 0; i < 2; i++) {
-	let candidate = new Candidate(i);
-	candidate.score = rnd(3);
-	candidates.push(candidate);
-}
+	round++;
 
-shuffle(candidates);
+	// get input data, parameter GA, create start pool
+	if (round === 1) {
 
-console.log(`${getObjectAttr(candidates)}`);
+		// read input
+		data = getData();
 
-/*let result = candidates.reduce((acc, candidate) => {
-	if (!acc.length) {
-		acc.push([candidate, 1]);
+		if (DEBUG_MODE && DEBUG.input.display){
+			if (DEBUG.input.display.full) {
+				console.error(`${getObjectAttr(data)}`);
+			} else {
+				console.error(`myX: ${data.x}`);
+				console.error(`myY: ${data.y}`);
+
+			}
+		}
+
+		// createStartPool GA
+		solution = new GeneticAlgorithm(data.x, data.y, data.humans, data.zombies);
+
+		// create start pool with random values
+		solution.createStartPool(geneticParameters.initialPoolSize);
+
+		if (DEBUG_MODE &&
+			DEBUG.initialCandidates.candidates) {
+			printCandidates('initialCandidates', solution.candidates, 5);
+		}
+
+		if (DEBUG_MODE &&
+			DEBUG.initialCandidates.tooLongCandidateCoords) {
+			let wrongCandidates = solution.candidates.filter(candidate => candidate.coords.length > 3);
+			if (wrongCandidates.length > 0)
+				printCandidates('initialCandidates.tooLongCandidateCoords', wrongCandidates);
+		}
+
 	} else {
-		let lastPushedArray = acc[acc.length-1];
-		if (lastPushedArray[0] === candidate) {
-			acc[acc.length-1][1]++;
-		} else {
-			acc.push([candidate, 1]);
+
+		data = getData();
+
+		if (DEBUG_MODE &&
+			DEBUG.input) {
+			console.error(`${getObjectAttr(data)}`);
+		}
+
+		// update GA
+		solution.update(data.x, data.y, data.humans, data.zombies);
+
+		// create start pool with recycled values from last round
+		solution.createStartPool(geneticParameters.initialPoolSize, false);
+
+		if (DEBUG_MODE &&
+			DEBUG.initialCandidates.candidates) {
+			printCandidates('initialCandidates', solution.candidates, 5);
+		}
+
+		if (DEBUG_MODE &&
+			DEBUG.initialCandidates.tooLongCandidateCoords) {
+			let wrongCandidates = solution.candidates.filter(candidate => candidate.coords.length > 3);
+			if (wrongCandidates.length > 0)
+				printCandidates('initialCandidates.tooLongCandidateCoords', wrongCandidates);
 		}
 	}
-	return acc;
-}, []);*/
 
+	let iterationTime = {
+			first: 250,
+			others: 100
+		},
+		time,
+		poolSizeStart = solution.candidates.length;
 
-/*console.log(`${getObjectAttr(candidates)}`);
+	if (round === 1)
+		time = iterationTime.first;
+	else
+		time = iterationTime.others;
 
-let topScore = Math.max.apply(null, candidates.map(candidate => candidate.score));
-candidates = candidates.filter(candidate => candidate.score === topScore);
+	let now = Date.now();
 
-console.log(`${getObjectAttr(candidates)}`);*/
+	while (Date.now() - now < time) {
+		iterationCount++;
+		solution.iterate(
+			geneticParameters.initialPoolSize,
+			geneticParameters.mergedNumber,
+			geneticParameters.mutatedNumber,
+			iterationCount === 1);
+	}
 
-/*for (let i = 0; i < 50; i++)
-	console.log(`${fib(i)}`);*/
+	allIterations += iterationCount;
+	allEvaluations += solution.evaluations;
 
+	if (DEBUG.endTurn) {
+		console.error(`poolSize: ${poolSizeStart} -> ${solution.candidates.length}`);
+		console.error(`IT_round: ${iterationCount} EV_round: ${solution.evaluations}`);
+		console.error(`evolved: ${solution.bestEvaluationScore - solution.firstEvaluationScore}`);
+		console.error(`IT_time: ${Date.now() - now}`);
+		console.error(`IT_all: ${allIterations} EV_all: ${allEvaluations}`);
+	}
 
+	let moveX,
+		moveY;
 
+	try {
+		moveX = solution.bestCandidate.coords[0].x;
+		moveY = solution.bestCandidate.coords[0].y;
+	} catch (err) {
+		if (DEBUG_MODE && DEBUG.catch) {
+			if (solution.candidates.length > 0) {
+				console.error(`catch: bestCandidate.coords are empty ${getObjectAttr(solution.bestCandidate)}`);
+			}
+		}
+		moveX = 0;
+		moveY = 0;
+	}
 
-/*
-while (true) {
-	console.error(`${rnd(1)}`);
+	if (DEBUG.endTurn) {
+		console.error(`id: ${solution.bestCandidate.id} bestScore: ${(solution.bestCandidate.score).toFixed(3)}`);
+		console.error(`coord: ${moveX}, ${moveY} coordsLength: ${solution.bestCandidate.coords.length}, madeBy: ${solution.bestCandidate.madeBy}`);
+	}
+
+	let x = truncateValue(data.x + moveX,  0, 15999),
+		y = truncateValue(data.y + moveY,  0, 8999);
+
+	console.log(`${x} ${y}`);
+
+	iterationCount = 0;
+	//solution.resetProperties();
+
 }
-*/
-
-
-/*
-let test = [{'x':1, 'y':1}, {'x':2, 'y':3}],
-	test1 = [{'x':1, 'y':1}, {'x':2, 'y':2}];
-
-console.log(`${JSON.stringify(test) === JSON.stringify(test1) }`);
-
-
-
-console.log(`${getObjectAttr(test)}`);
-console.log(`${getObjectAttr(test1)}`);
-*/
-
-
-//console.log(`${truncateValue(30, 1, 50)}`);
-
-
-
-
-/*
-let test = [{'value':5}, {'value':2}, {'value':3}, {'value':4}, {'value':5}];
-
-
-let result = test.filter(item => item.value > 3);
-
-
-console.log(`${getObjectParams(result)}`);
-console.log(`${result}`);
-*/
-
-
-/*let me = new Point(8000, 7999),
-	zombie = new Point(8280, 7265);
-
-
-console.log(`${me.dist(zombie)}`);
-console.log(`${getObjectAttr(moveToZombie(me, zombie))}`);*/
-
-
-
-
-
-
-
-
-
