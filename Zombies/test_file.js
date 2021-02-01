@@ -93,7 +93,6 @@ function getData() {
 
 	console.log(`GETDATA: ${data.x} ${data.y} ${data.humans.length} ${data.zombies.length}`);
 
-// GIT TRY
 
 }
 
