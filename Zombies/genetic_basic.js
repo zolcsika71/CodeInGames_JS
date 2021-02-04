@@ -8,23 +8,17 @@
 //
 // GENERATOR_RANGE = 3500
 //
-// geneticParameters = {
-// 		initialPoolSize: 100,
-// 		mergedNumber: 100,
-// 		mutatedNumber: 100,
-// 	}
+// this.candidates.unshift(this.createCandidate(coord, id));
+//
+// runOneIteration: only random
 
 
 
 // TODO
 //
-// check candidates generate
+// TODO GA.bestCandidate, scores: scoring and steps are wrong, if this.humansKilledNextRound
 //
-// TODO finish evaluation
-//
-//
-//
-// TODO DEBUG.best.sameCandidates: filter the same candidates try it in test (two object of array is the same, when?)
+// TODO finish computeScores
 //
 // TODO make inputs from file (maybe a simulator...)
 
@@ -47,6 +41,7 @@ const
 		endTurn: true,
 		noCandidates: false,
 		catch: false,
+		evolved: true,
 		initialCandidates: {
 			candidates: false,
 			tooLongCandidateCoords: false,
@@ -58,7 +53,7 @@ const
 		},
 		input: {
 			fromEngine: true,
-			display: true,
+			display: false,
 			full: false
 		},
 		generator: {
@@ -90,34 +85,29 @@ const
 			candidatesLength: false,
 		},
 		computeScores: {
-			candidates: false,
-			preCheck: false,
-			evaluator: false,
-			candidateScores: false,
-		},
-		getCandidateScore: {
-			dropped: false,
-			candidate: false,
-			candidateScore: false,
-		},
-		evaluation: {
-			round: 0, // 0 => false
-			numberOfCandidate: 3, // first x candidate
+			run: true,
+			print: false,
+			evaluations: 5, // how many candidates will be printed
+			round: 4,
 		},
 		best: {
-			run: false,
-			candidate: false,
-			sameCandidates: false,
+			computeScore: {
+				run: true,
+				lastTime: 0.999,
+			},
+			sameCandidates: {
+				run: false,
+				round: 1,
+				iterationCount: 1000,
+			},
 		}
 	};
 
 let
 	geneticParameters = {
 		initialPoolSize: 100,
-		mergedNumber: 10,
-		mutatedNumber: 10,
-	},
-	log = '';
+		randomNumber: 10,
+	};
 
 function getObjectAttr(x) {
 	return JSON.stringify(x, null, 2);
@@ -217,14 +207,17 @@ function getData() {
 		humans = [],
 		zombies = [];
 
+	// eslint-disable-next-line no-undef
 	let inputs = readline().split(' ');
 
 	myX = parseInt(inputs[0]);
 	myY = parseInt(inputs[1]);
 
+	// eslint-disable-next-line no-undef
 	let humanCount = parseInt(readline());
 
 	for (let i = 0; i < humanCount; i++) {
+		// eslint-disable-next-line no-undef
 		let inputs = readline().split(' '),
 			id = parseInt(inputs[0]),
 			x = parseInt(inputs[1]),
@@ -232,9 +225,11 @@ function getData() {
 		humans.push(new Human(id, x, y));
 	}
 
+	// eslint-disable-next-line no-undef
 	let zombieCount = parseInt(readline());
 
 	for (let i = 0; i < zombieCount; i++) {
+		// eslint-disable-next-line no-undef
 		let inputs = readline().split(' '),
 			id = parseInt(inputs[0]),
 			x = parseInt(inputs[1]),
@@ -243,6 +238,9 @@ function getData() {
 			nextY = parseInt(inputs[4]);
 		zombies.push(new Zombie(id, x, y, nextX, nextY));
 	}
+
+	now = Date.now();
+
 	return {
 		x: myX,
 		y: myY,
@@ -291,6 +289,7 @@ class Candidate {
 		this.coords = [];
 		this.score = -Infinity;
 		this.madeBy = '';
+		this.test = {};
 	}
 }
 class Vector {
@@ -354,19 +353,28 @@ class Sim extends Point {
 		this.cache = [{}, {}];
 		this.humans = cloneArray(humans);
 		this.zombies = cloneArray(zombies);
-		this.evaluatedCandidateId = -1;
+		this.zombiesKilled = 0;
+		this.humansKilled = 0;
+		this.humansKilledNextRound = 0;
 	}
 	save (id) {
 		this.cache[id].x = this.x;
 		this.cache[id].y = this.y;
 		this.cache[id].humans = cloneArray(this.humans);
 		this.cache[id].zombies = cloneArray(this.zombies);
+		this.cache[id].zombiesKilled = this.zombiesKilled;
+		this.cache[id].humansKilled = this.humansKilled;
+		this.cache[id].humansKilledNextRound = this.humansKilledNextRound;
+
 	}
 	load (id) {
 		this.x = this.cache[id].x;
 		this.y = this.cache[id].y;
 		this.humans = cloneArray(this.cache[id].humans);
 		this.zombies = cloneArray(this.cache[id].zombies);
+		this.zombiesKilled = this.cache[id].zombiesKilled;
+		this.humansKilled = this.cache[id].humansKilled;
+		this.humansKilledNextRound = this.cache[id].humansKilledNextRound;
 	}
 	update (x, y, humans, zombies) {
 		this.x = x;
@@ -392,42 +400,51 @@ class Sim extends Point {
 	}
 	getCandidateScore (candidate) {
 
-		if (DEBUG_MODE && DEBUG.getCandidateScore.candidateScore) {
-			console.error(`zombiesLength: ${this.zombies.length} humanLength: ${this.humans.length}`);
-		}
-
-		if (DEBUG_MODE && DEBUG.getCandidateScore.candidate) {
-			printCandidates('getCandidateScore.candidate', candidate, 5);
-		}
-
 		let coordsLength = candidate.coords.length,
 			zombiesLength = this.zombies.length,
 			countedMoves = 0,
-			score = 0;
+			score = 0,
+			testData = {
+				getCandidateScore: {
+					id: candidate.id,
+					score: score,
+					madeBy: candidate.madeBy,
+					coordsLength: coordsLength,
+					firstCoord: candidate.coords[0],
+					moves: 0,
+					countedMoves: 0,
+				},
+				scores: [],
+				evaluates: [],
+			};
 
 		this.save(0);
-		//this.save();
 
-		// move on solution, count score on the move
+		if (coordsLength === 0) {
+			console.error('HELLO');
+		}
+
+		// move on solution, count scores on the move
 		for (let i = 0; i < coordsLength; i++) {
 
 			this.move(candidate.coords[i]);
-			score += this.score(candidate, true);
 
-			// return score if all humans die at first move
+			if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round)
+				testData.getCandidateScore.moves++;
+			
+			let evaluator = this.score(testData);
+
+			score += evaluator[0];
+			testData = evaluator[1];
+
+			if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round)
+				testData.getCandidateScore.score = score;
+
+			// return scores if all humans die at first move
 			if (i === 0 && score === -1) {
-
-				if (DEBUG_MODE && DEBUG.getCandidateScore.dropped) {
-					printCandidates('getCandidateScore.dropped', candidate, 5);
-				}
-
 				this.load(0);
-				return score;
+				return [score, testData];
 			}
-		}
-
-		if (DEBUG_MODE && DEBUG.getCandidateScore.candidateScore) {
-			console.error(`scoreCoords: ${score}`);
 		}
 
 		shuffle(this.zombies);
@@ -444,34 +461,34 @@ class Sim extends Point {
 				while (this.distSquare(zombiePos) > MY_KILL_RANGE_SQUARE) {
 
 					this.moveToTarget(zombiePos);
-					score += this.score(candidate, false, i);
+
+					let evaluator = this.score(testData);
+
+					score += evaluator[0];
+					testData = evaluator[1];
+
 					countedMoves++;
+
+					if (DEBUG_MODE &&   DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
+						testData.getCandidateScore.countedMoves = countedMoves;
+						testData.getCandidateScore.score = score;
+					}
 				}
 
 				this.load(1);
 			}
 		}
 
-		if (DEBUG_MODE && DEBUG.getCandidateScore.candidateScore) {
-			console.error(`scoreAll: ${score}`);
-		}
-
 		score = score / (coordsLength + countedMoves);
 
-		//this.load();
+		if (DEBUG_MODE &&   DEBUG.computeScores.run && DEBUG.computeScores.round === round)
+			testData.getCandidateScore.score = score;
+
 		this.load(0);
 
-		if (DEBUG_MODE && DEBUG.getCandidateScore.candidateScore) {
-			console.error(`getCandidateScore.candidateScore: coordsLength: ${coordsLength} countedMoves: ${countedMoves} score: ${score}`);
-		}
-
-		if (DEBUG_MODE && round === DEBUG.evaluation.round && candidate.id < DEBUG.evaluation.numberOfCandidate) {
-			console.error(`returnedSCore => id: ${candidate.id} score: ${score.toFixed(3)} length: ${candidate.coords.length} steps: ${coordsLength + countedMoves} madeBy: ${candidate.madeBy}`);
-		}
-
-		return score;
+		return [score, testData];
 	}
-	score(candidate, byCoord, zombieIndex = 0) {
+	score(testData) {
 
 		// build cemetery
 		for (let zombie of this.zombies) {
@@ -483,114 +500,72 @@ class Sim extends Point {
 				// Ash kills the zombie
 				if (zombiePos.distSquare(this) <= MY_KILL_RANGE_SQUARE) {
 					zombie.alive = false;
+					this.zombiesKilled++;
 					continue;
 				}
 
 				// Human killed or will be killed
-				if (zombie.alive){
-					for (let human of this.humans) {
-						if (human.alive) {
-							// Human killed?
-							if (zombiePos.x === human.x && zombiePos.y === human.y) {
-								human.alive = false;
-								human.aliveNextRound = false;
-							}
-							// Human will be killed?
-							// TODO (...and if this human is the closest, and with the lowest id...corner case)
-							else if (zombiePos.distSquare(human) <= ZOMBIE_KILL_RANGE_SQUARE && human.aliveNextRound) {
-								human.aliveNextRound = false;
-							}
+				for (let human of this.humans) {
+					if (human.alive) {
+						// Human killed?
+						if (zombiePos.x === human.x && zombiePos.y === human.y) {
+							human.alive = false;
+							human.aliveNextRound = false;
+							this.humansKilled++;
+						}
+						// Human will be killed?
+						else if (zombiePos.distSquare(human) <= ZOMBIE_KILL_RANGE_SQUARE && human.aliveNextRound) {
+							human.aliveNextRound = false;
+							this.humansKilledNextRound++;
 						}
 					}
 				}
 			}
 		}
-		return this.evaluate(candidate, byCoord, zombieIndex);
+
+		if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round)
+			testData.scores.push({
+				zombiesKilled: this.zombiesKilled,
+				humansKilled: this.humansKilled,
+				humansKilledNextRound: this.humansKilledNextRound,
+			});
+
+		return this.evaluate(testData);
 	}
-	evaluate (candidate, byCoord, zombieIndex) {
+	evaluate (testData) {
 
-		// TODO check humansWillBeDead options
-
-		// TODO filter cost too much
-
-		function consoleKilledZombiesId (zombiesKilledArray) {
-			let returnValue = '';
-
-			for (let killedZombie of zombiesKilledArray)
-				returnValue += killedZombie.id + ' ';
-
-			returnValue = returnValue.length !== 0 ? returnValue : 'None';
-
-			return returnValue;
-
-		}
-
-		let humansAlive = this.humans.filter(human => human.alive).length,
-			zombiesKilledArray  = this.zombies.filter(zombie => !zombie.alive),
-			zombiesKilled = zombiesKilledArray.length,
-			humansAliveNextRound = this.humans.filter(human => human.aliveNextRound).length,
+		let humansAlive = this.humans.length - this.humansKilled,
+			zombiesKilled = this.zombiesKilled,
+			humansAliveNextRound = humansAlive - this.humansKilledNextRound,
 			score = 0;
 
-
-		if (humansAlive < 1)
+		if (humansAlive < 1) {
 			score = -1;
+		}
 		else if (zombiesKilled === 1) {
-			score = humansAlive * humansAlive * 10 + humansAliveNextRound * humansAliveNextRound * 10 * HUMAN_NEXT_ROUND_VALUE;
-			//score = humansAlive * humansAlive * 10 * humansAliveNextRound * humansAliveNextRound;
+			score = humansAlive * humansAlive * 10 + (humansAliveNextRound * humansAliveNextRound * HUMAN_NEXT_ROUND_VALUE) * 10;
+			//scores = humansAlive * humansAlive * 10 * humansAliveNextRound * humansAliveNextRound;
 		}
 		else if (zombiesKilled > 1) {
-			score = humansAlive * humansAlive * 10 * fib(zombiesKilled) + humansAliveNextRound * humansAliveNextRound * 10 * fib(zombiesKilled) * HUMAN_NEXT_ROUND_VALUE;
-			//score = humansAlive * humansAlive * 10 * fib(zombiesKilled) * humansAliveNextRound * humansAliveNextRound;
+			score = humansAlive * humansAlive * 10 * fib(zombiesKilled) + (humansAliveNextRound * humansAliveNextRound * HUMAN_NEXT_ROUND_VALUE) * 10 * fib(zombiesKilled);
+			//scores = humansAlive * humansAlive * 10 * fib(zombiesKilled) * humansAliveNextRound * humansAliveNextRound;
 		}
 
 		score += humansAlive + humansAliveNextRound;
 
-
-		//TODO test 1 :D
-		if (DEBUG_MODE && DEBUG.evaluation.round > 0 && candidate.id < DEBUG.evaluation.numberOfCandidate) {
-
-			if (round === DEBUG.evaluation.round && score > -1) {
-
-				let killedZombiesId = consoleKilledZombiesId(zombiesKilledArray);
-				if (byCoord) {
-
-					if (this.evaluatedCandidateId !== candidate.id) {
-						console.error(`id: ${candidate.id} score: ${score} length: ${candidate.coords.length} madeBy: ${candidate.madeBy}`);
-					}
-
-					log = `     ByCoords => ${humansAlive}, ${zombiesKilled}, ${humansAliveNextRound}`
-								+ ` score: ${score} killed: ${killedZombiesId}`;
-
-					console.error(log);
-
-				} else {
-
-					// TODO print ONLY final result and number of steps for zombieId / testCase: 1, 9
-					// targetId: 3
-					//              ByMove => 4, 4, 4 score: 1608  steps: {numberOfByMoveToThisZombie} killed: 3 5 11 10
-					// targetId: 4
-					//              ByMove => 4, 4, 4 score: 1608 steps: {numberOfByMoveToThisZombie} killed: 4 9 11 10
-
-					let zombieId = this.zombies[zombieIndex].id;
-
-
-					if (killedZombiesId !== 'None') {
-						console.error(`         targetId: ${zombieId}`);
-
-						log = `             ByMove => ${humansAlive}, ${zombiesKilled}, ${humansAliveNextRound} score: ${score}`
-							+ ` killed: ${killedZombiesId}`;
-
-						console.error(log);
-					}
-
-
-				}
-				this.evaluatedCandidateId = candidate.id;
-			}
-
+		if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
+			
+			testData.evaluates.push({
+				humansAlive: humansAlive,
+				zombiesKilled: zombiesKilled,
+				humansAliveNextRound: humansAliveNextRound,
+				score: score
+			});
 		}
-		return score;
+
+		return [score, testData];
 	}
+	
 }
 class CandidateOperator extends Sim {
 	constructor(x, y, humans, zombies) {
@@ -646,8 +621,17 @@ class CandidateOperator extends Sim {
 		if (DEBUG_MODE && DEBUG.merger.run)
 			console.error(`merger run: ${iterationCount}`);
 
-		let candidateCoords = candidate1.coords.concat(candidate2.coords),
-			candidateLength = rnd(1, Math.min(DEPTH, candidateCoords.length)),
+		let candidateCoords = cloneArray(candidate1.coords.concat(candidate2.coords));
+
+		if (candidateCoords.length === 2) {
+			let candidate = new Candidate(id);
+
+			candidate.coords = candidateCoords;
+
+			return this.mutator(candidate, id, true);
+		}
+
+		let	candidateLength = rnd(1, Math.min(DEPTH, candidateCoords.length)),
 			candidate = new Candidate(id);
 
 		shuffle(candidateCoords);
@@ -656,7 +640,7 @@ class CandidateOperator extends Sim {
 
 		candidate.coords = candidateCoords;
 		
-		if (DEBUG_MODE && DEBUG.merger.printResult) {
+		if (DEBUG_MODE && DEBUG.merger.printResult && round === 1) {
 			console.error('merger.printResult: ');
 			printCandidates('original', candidate1);
 			printCandidates('additional', candidate2);
@@ -670,7 +654,7 @@ class CandidateOperator extends Sim {
 
 		return candidate;
 	}
-	mutator (mutateCandidate, id) {
+	mutator (mutateCandidate, id, sentFromMerger = false) {
 
 		function mutate(candidateCoord, randomPosition) {
 			if (RAND() <= 0.5)
@@ -706,9 +690,22 @@ class CandidateOperator extends Sim {
 		if(DEBUG_MODE && DEBUG.mutator.newCandidateId && iterationCount >= 1)
 			console.error(`${round} ${iterationCount} mutatorId: ${id}`);
 
-		candidate.madeBy = 'mutator';
+		if (sentFromMerger)
+			candidate.madeBy = 'merger-mutator';
+		else
+			candidate.madeBy = 'mutator';
 
 		return candidate;
+	}
+	reCycler (coords, id) {
+
+		let candidate = new Candidate(id);
+
+		candidate.coords = [coords];
+		candidate.madeBy = 'reCycler';
+
+		return candidate;
+
 	}
 	evaluator (candidate) {
 		return this.getCandidateScore(candidate);
@@ -722,6 +719,7 @@ class GeneticAlgorithm extends CandidateOperator {
 		this.evaluations = 0;
 		this.firstEvaluationScore = 0;
 		this.bestEvaluationScore = 0;
+		//this.nextId = 0;
 	}
 	createStartPool (initialPoolSize, firstRound = true) {
 		if (firstRound) {
@@ -737,10 +735,14 @@ class GeneticAlgorithm extends CandidateOperator {
 	}
 	addRandomCandidates(numberOfCandidates) {
 
-		let candidatesLength = this.candidates.length;
+		let candidatesLength = this.candidates.length,
+			id = candidatesLength;
 
-		for (let i = candidatesLength; i < candidatesLength + numberOfCandidates; i++)
-			this.candidates.push(this.generator(i));
+		for (let i = 0; i < numberOfCandidates; i++) {
+			this.candidates.push(this.generator(id));
+			id++;
+		}
+
 	}
 	addCreatedCandidates() {
 
@@ -750,6 +752,7 @@ class GeneticAlgorithm extends CandidateOperator {
 
 		// create candidates for zombies
 		for (let i = 0; i < zombiesLength; i++) {
+
 			let zombiePos = new Point(this.zombies[i].nextX, this.zombies[i].nextY),
 				coord = this.moveToTarget(zombiePos,false);
 			
@@ -757,13 +760,14 @@ class GeneticAlgorithm extends CandidateOperator {
 				console.error(`toZombies (${this.zombies[i].id}) - round: ${round} iterationCount: ${iterationCount}`);
 			}
 
-			this.candidates.push(this.createCandidate(coord, id));
+			this.candidates.unshift(this.createCandidate(coord, id));
 
 			id++;
 		}
 
 		// create candidates for humans
 		for (let i = 0; i < humansLength; i++) {
+
 			let coord = this.moveToTarget(this.humans[i],false);
 
 			if (DEBUG_MODE && DEBUG.createCandidate.candidate) {
@@ -787,7 +791,7 @@ class GeneticAlgorithm extends CandidateOperator {
 
 		
 	}
-	merge (mergedNumber = this.candidates.length) {
+	/*merge (mergedNumber = this.candidates.length) {
 
 		let candidatesLength = this.candidates.length,
 			id = candidatesLength;
@@ -809,75 +813,80 @@ class GeneticAlgorithm extends CandidateOperator {
 	}
 	mutate (mutatedNumber= this.candidates.length) {
 
-		let candidatesLength = this.candidates.length;
+		let candidatesLength = this.candidates.length,
+			id = candidatesLength;
 
 		mutatedNumber = Math.min(mutatedNumber, candidatesLength);
 
 		for (let i = 0; i < mutatedNumber; i++) {
 
-			let candidate = this.candidates[0],
-				id = candidatesLength;
+			let candidate = this.candidates[i];
 
 			this.candidates.push(this.mutator(candidate, id));
 
 			id++;
 		}
-	}
+	}*/
 	recycle () {
 		// recycle candidates
-		this.candidates = this.candidates.filter(candidate => candidate.coords.length > 1);
-		let candidatesLength = this.candidates.length;
+		let candidatesLength = this.candidates.length,
+			id = candidatesLength;
+
 		for (let i = 0; i < candidatesLength; i++) {
-			this.candidates[i].id = i;
-			this.candidates[i].score = -Infinity;
-			this.candidates[i].coords = this.candidates[i].coords.slice(1);
-			this.candidates[i].madeBy = 'recycle';
+			if (this.candidates[i].score > -Infinity && this.candidates[i].coords.length > 1) {
+				this.candidates.push(this.reCycler(this.candidates[i].coords.slice(1), id));
+				id++;
+			}
 		}
 	}
 	computeScores () {
-
-		if (DEBUG_MODE && DEBUG.computeScores.preCheck) {
-			console.error(`preCheck: ${iterationCount}, ${this.candidates.length}`);
-		}
 
 		for (let candidate of this.candidates) {
 
 			if (candidate.score === -Infinity) {
 
-				if (DEBUG_MODE && DEBUG.computeScores.candidates) {
-					printCandidates(`computeScores.candidates ${iterationCount}`, candidate);
-				}
+				let evaluator = this.evaluator(candidate);
 
-				candidate.score = this.evaluator(candidate);
+				candidate.score = evaluator[0];
+				candidate.testData = evaluator[1];
 
 				this.evaluations++;
 
-				if (DEBUG_MODE && DEBUG.computeScores.evaluator) {
-					console.error(`computeScores.evaluator: ${candidate.score}, evaluations: ${this.evaluations}`);
-				}
+				if (DEBUG_MODE && DEBUG.computeScores.run
+					&& DEBUG.computeScores.print
+					&& DEBUG.computeScores.round === round
+					&& this.evaluations <= DEBUG.computeScores.evaluations) {
+					// print testData
+					console.error(`no: ${this.evaluations}`);
+					console.error(`${getObjectAttr(candidate.testData)}`);
 
-				if (DEBUG_MODE && DEBUG.computeScores.candidateScores) {
-					printCandidates('computeScores.candidateScores', candidate);
 				}
-
 			}
 		}
 	}
 	dropUnselected () {
 
-		if (DEBUG_MODE && DEBUG.dropUnselected.candidates) {
-			printCandidates('dropUnselected.candidates', this.candidates, 5);
+		if (DEBUG_MODE && DEBUG.dropUnselected.candidates && iterationCount === 1) {
+			printCandidates('created candidates', this.candidates, 10, false);
 		}
 
+		// get topScore from this,candidates
 		let topScore = Math.max.apply(null, this.candidates.map(candidate => candidate.score));
+
+		// filter candidates.scores === topScore
 		this.candidates = this.candidates.filter(candidate => candidate.score === topScore);
 
 		if (DEBUG_MODE && DEBUG.dropUnselected.candidatesLength) {
 			console.error(`dropUnselected.candidatesLength - validCandidates: ${this.candidates.length}`);
 		}
 
-		if (DEBUG_MODE && DEBUG.dropUnselected.candidates) {
-			printCandidates('dropUnselected.candidates', this.candidates, 5);
+		if (DEBUG_MODE && DEBUG.dropUnselected.candidates && iterationCount === 1) {
+			printCandidates('dropUnselected.candidates', this.candidates, 10);
+		}
+
+		// reset id
+		for (let i = 0; i < this.candidates.length; i++) {
+			this.candidates[i].id = i;
 		}
 
 	}
@@ -887,32 +896,42 @@ class GeneticAlgorithm extends CandidateOperator {
 	}
 	best () {
 
-		if (DEBUG_MODE && DEBUG.best.run) {
-			console.error(`best run ${iterationCount}`);
-		}
-
 		if (this.candidates.length > 0) {
 
 			//shuffle(this.candidates);
 
 			this.bestCandidate = this.candidates[0];
 
-			if (DEBUG_MODE && DEBUG.best.candidate) {
-				printCandidates('best.candidates', this.candidates, 3);
-			}
+			//console.error(`lastCandidateId: ${this.lastCandidateId} bestCandidateId: ${this.bestCandidate.id}`);
 
-			if (DEBUG_MODE && DEBUG.best.sameCandidates) {
-				if (this.candidates.length > 1){
+			if (DEBUG_MODE && DEBUG.best.sameCandidates.run
+				&& round === DEBUG.best.sameCandidates.round
+				&& iterationCount === DEBUG.best.sameCandidates.iterationCount) {
+				let counter = 0;
+				if (this.candidates.length > 1) {
 					for (let i = 0; i < this.candidates.length - 1; i++) {
 						for (let j = i + 1; j < this.candidates.length; j++) {
 							if (JSON.stringify(this.candidates[i].coords) === JSON.stringify(this.candidates[j].coords)) {
-								console.error(`${this.candidates[i].id} === ${this.candidates[j].id}`);
-								printCandidates('same', this.candidates[i]);
-								printCandidates('same', this.candidates[j]);
+								//console.error(`i: ${i} j: ${j}`);
+								//console.error(`${this.candidates[i].id} === ${this.candidates[j].id}`);
+								//printCandidates('same', this.candidates[i]);
+								//printCandidates('same', this.candidates[j]);
+								counter++;
+								//console.error(`id: ${this.candidates[i].id} ${this.candidates[j].id} length: ${this.candidates[i].coords.length} ${this.candidates[j].coords.length} madeBy ${this.candidates[i].madeBy} ${this.candidates[j].madeBy}`);
+
 							}
 						}
 					}
+					console.error(`samCandidates: ${counter}`);
 				}
+			}
+
+			if (DEBUG_MODE && DEBUG.best.computeScore.run
+				&& DEBUG.computeScores.round === round
+				&& Date.now() - now > DEBUG.best.computeScore.lastTime * time
+			) {
+				console.error(`no: ${this.evaluations}`);
+				console.error(`${getObjectAttr(this.bestCandidate.testData)}`);
 			}
 
 		} else if (DEBUG.noCandidates) {
@@ -923,7 +942,7 @@ class GeneticAlgorithm extends CandidateOperator {
 	iterate (initialPoolSize, mergedNumber, mutatedNumber, firstIteration) {
 		this.runOneIteration(initialPoolSize, mergedNumber, mutatedNumber, firstIteration);
 	}
-	runOneIteration (initialPoolSize, mergedNumber, mutatedNumber, firstIteration) {
+	runOneIteration (initialPoolSize, randomNumber, firstIteration) {
 
 		if (this.bestCandidate.score > -Infinity) {
 
@@ -935,9 +954,15 @@ class GeneticAlgorithm extends CandidateOperator {
 				//	console.error('runOneIteration.tooLongCandidateCoords - ALL candidates good');
 			}
 			
-			this.merge(mergedNumber);
-			this.mutate(mutatedNumber);
-			this.addRandomCandidates(initialPoolSize - this.candidates.length);
+			//this.merge();
+			//this.mutate(mutatedNumber);
+
+			let candidatesLength = this.candidates.length;
+
+			if (initialPoolSize - candidatesLength > 0)
+				randomNumber += initialPoolSize - candidatesLength;
+
+			this.addRandomCandidates(randomNumber);
 
 			if (DEBUG_MODE && DEBUG.runOneIteration.tooLongCandidateCoords && round === 1) {
 				let wrongCandidatesAfter = this.candidates.filter(candidate => candidate.coords.length > 3);
@@ -947,28 +972,26 @@ class GeneticAlgorithm extends CandidateOperator {
 
 		}
 
-
-
 		this.computeScores();
 
 		/*if (DEBUG_MODE && DEBUG.runOneIteration.candidates && round === 1) {
 			printCandidates('createdPool', this.candidates, 10, false);
 		}*/
 
-
 		this.dropUnselected();
 
-		if (DEBUG_MODE && DEBUG.runOneIteration.candidates && round === 1) {
-			printCandidates('dropUnselected', this.candidates, 10, false);
+		if (DEBUG_MODE && DEBUG.runOneIteration.candidates && round === 1 && iterationCount === 1000) {
+			printCandidates('after dropUnselected', this.candidates, 100, false);
 		}
-
 
 		this.best();
 
-		if (firstIteration)
-			this.firstEvaluationScore = this.bestCandidate.score;
-		else if (this.bestCandidate.score >= this.firstEvaluationScore)
-			this.bestEvaluationScore = this.bestCandidate.score;
+		if (DEBUG_MODE && DEBUG.evolved){
+			if (firstIteration)
+				this.firstEvaluationScore = this.bestCandidate.score;
+			else if (this.bestCandidate.score >= this.firstEvaluationScore)
+				this.bestEvaluationScore = this.bestCandidate.score;
+		}
 
 
 		if(DEBUG_MODE && DEBUG.runOneIteration.bestCandidate) {
@@ -980,6 +1003,8 @@ class GeneticAlgorithm extends CandidateOperator {
 }
 
 let round = 0,
+	now = 0,
+	time,
 	solution = '',
 	iterationCount = 0,
 	allIterations = 0,
@@ -992,7 +1017,7 @@ while (true) {
 
 	round++;
 
-	// get input data, parameter GA, create start pool
+	// get input data, parameter / update GA, create start pools
 	if (round === 1) {
 
 		// read input
@@ -1030,9 +1055,14 @@ while (true) {
 
 		data = getData();
 
-		if (DEBUG_MODE &&
-			DEBUG.input) {
-			console.error(`${getObjectAttr(data)}`);
+		if (DEBUG_MODE && DEBUG.input.display){
+			if (DEBUG.input.display.full) {
+				console.error(`${getObjectAttr(data)}`);
+			} else {
+				console.error(`myX: ${data.x}`);
+				console.error(`myY: ${data.y}`);
+
+			}
 		}
 
 		// update GA
@@ -1058,7 +1088,6 @@ while (true) {
 			first: 250,
 			others: 100
 		},
-		time,
 		poolSizeStart = solution.candidates.length;
 
 	if (round === 1)
@@ -1066,14 +1095,13 @@ while (true) {
 	else
 		time = iterationTime.others;
 
-	let now = Date.now();
+
 
 	while (Date.now() - now < time) {
 		iterationCount++;
 		solution.iterate(
 			geneticParameters.initialPoolSize,
-			geneticParameters.mergedNumber,
-			geneticParameters.mutatedNumber,
+			geneticParameters.randomNumber,
 			iterationCount === 1);
 	}
 
@@ -1083,7 +1111,8 @@ while (true) {
 	if (DEBUG.endTurn) {
 		console.error(`poolSize: ${poolSizeStart} -> ${solution.candidates.length}`);
 		console.error(`IT_round: ${iterationCount} EV_round: ${solution.evaluations}`);
-		console.error(`evolved: ${solution.bestEvaluationScore - solution.firstEvaluationScore}`);
+		if (DEBUG_MODE && DEBUG.evolved)
+			console.error(`evolved: ${solution.bestEvaluationScore - solution.firstEvaluationScore}`);
 		console.error(`IT_time: ${Date.now() - now}`);
 		console.error(`IT_all: ${allIterations} EV_all: ${allEvaluations}`);
 	}

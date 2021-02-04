@@ -281,7 +281,7 @@ class Sim extends Point {
             zombiesLength = this.zombies.length,
             solutionLength = solution.coords.length;
 
-        // move on solution, count score on the move
+        // move on solution, count scores on the move
         for (let i = 0; i < solutionLength; i++) {
             this.move(solution.coords[i]);
             score += this.score();

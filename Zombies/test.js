@@ -295,13 +295,13 @@ class Sim extends Point {
 		this.save(0);
 		//this.save();
 
-		// move on solution, count score on the move
+		// move on solution, count scores on the move
 		for (let i = 0; i < coordsLength; i++) {
 
 			this.move(candidate.coords[i]);
 			score += this.score(candidate, true);
 
-			// return score if all humans die at first move
+			// return scores if all humans die at first move
 			if (i === 0 && score === -1) {
 
 				if (DEBUG_MODE && DEBUG.getCandidateScore.dropped) {
@@ -352,7 +352,7 @@ class Sim extends Point {
 			console.error(`getCandidateScore.candidateScore: coordsLength: ${coordsLength} countedMoves: ${countedMoves} score: ${score}`);
 		}
 
-		if (DEBUG_MODE && round === DEBUG.evaluation.round && candidate.id < DEBUG.evaluation.numberOfCandidate) {
+		if (DEBUG_MODE && round === DEBUG.computeScores.round && candidate.id < DEBUG.computeScores.numberOfCandidate) {
 			console.error(`returnedSCore => id: ${candidate.id} score: ${score.toFixed(3)} length: ${candidate.coords.length} steps: ${coordsLength + countedMoves} madeBy: ${candidate.madeBy}`);
 		}
 
@@ -423,20 +423,20 @@ class Sim extends Point {
 			score = -1;
 		else if (zombiesKilled === 1) {
 			score = humansAlive * humansAlive * 10 + humansAliveNextRound * humansAliveNextRound * 10 * HUMAN_NEXT_ROUND_VALUE;
-			//score = humansAlive * humansAlive * 10 * humansAliveNextRound * humansAliveNextRound;
+			//scores = humansAlive * humansAlive * 10 * humansAliveNextRound * humansAliveNextRound;
 		}
 		else if (zombiesKilled > 1) {
 			score = humansAlive * humansAlive * 10 * fib(zombiesKilled) + humansAliveNextRound * humansAliveNextRound * 10 * fib(zombiesKilled) * HUMAN_NEXT_ROUND_VALUE;
-			//score = humansAlive * humansAlive * 10 * fib(zombiesKilled) * humansAliveNextRound * humansAliveNextRound;
+			//scores = humansAlive * humansAlive * 10 * fib(zombiesKilled) * humansAliveNextRound * humansAliveNextRound;
 		}
 
 		score += humansAlive + humansAliveNextRound;
 
 
 		//TODO test 1 :D
-		if (DEBUG_MODE && DEBUG.evaluation.round > 0 && candidate.id < DEBUG.evaluation.numberOfCandidate) {
+		if (DEBUG_MODE && DEBUG.computeScores.round > 0 && candidate.id < DEBUG.computeScores.numberOfCandidate) {
 
-			if (round === DEBUG.evaluation.round && score > -1) {
+			if (round === DEBUG.computeScores.round && score > -1) {
 
 				let killedZombiesId = consoleKilledZombiesId(zombiesKilledArray);
 				if (byCoord) {
@@ -454,9 +454,9 @@ class Sim extends Point {
 
 					// TODO print ONLY final result and number of steps for zombieId / testCase: 1, 9
 					// targetId: 3
-					//              ByMove => 4, 4, 4 score: 1608  steps: {numberOfByMoveToThisZombie} killed: 3 5 11 10
+					//              ByMove => 4, 4, 4 scores: 1608  steps: {numberOfByMoveToThisZombie} killed: 3 5 11 10
 					// targetId: 4
-					//              ByMove => 4, 4, 4 score: 1608 steps: {numberOfByMoveToThisZombie} killed: 4 9 11 10
+					//              ByMove => 4, 4, 4 scores: 1608 steps: {numberOfByMoveToThisZombie} killed: 4 9 11 10
 
 					let zombieId = this.zombies[zombieIndex].id;
 
@@ -898,8 +898,8 @@ console.log(`${getObjectAttr(candidates)}`);
 
 /*console.log(`${getObjectAttr(candidates)}`);
 
-let topScore = Math.max.apply(null, candidates.map(candidate => candidate.score));
-candidates = candidates.filter(candidate => candidate.score === topScore);
+let topScore = Math.max.apply(null, candidates.map(candidate => candidate.scores));
+candidates = candidates.filter(candidate => candidate.scores === topScore);
 
 console.log(`${getObjectAttr(candidates)}`);*/
 
