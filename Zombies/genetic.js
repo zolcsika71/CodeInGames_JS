@@ -348,7 +348,7 @@ class Sim extends Point {
 				}
 			}
 		}
-		//console.error(`humanKilled: ${this.humanKilled} zombieKilled: ${this.zombieKilled} scores: ${this.evaluates()}`);
+		//console.error(`humanKilled: ${this.humanKilled} zombieKilled: ${this.zombieKilled} scores: ${this.evaluateData()}`);
 		return this.evaluate();
 	}
 	evaluate () {

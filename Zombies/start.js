@@ -391,7 +391,7 @@ class Sim extends Point {
 		else if (this.zombieKilled === 1)
 			score = humansAlive * humansAlive * 10;
 
-		//console.error(`humansKilled ${this.humanKilled} zombiesKilled: ${this.zombieKilled} scores: ${scores}`);
+		//console.error(`humansKilledData ${this.humanKilled} zombiesKilledData: ${this.zombieKilled} scores: ${scores}`);
 
 		return score;
 

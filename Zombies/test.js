@@ -427,7 +427,7 @@ class Sim extends Point {
 		}
 		else if (zombiesKilled > 1) {
 			score = humansAlive * humansAlive * 10 * fib(zombiesKilled) + humansAliveNextRound * humansAliveNextRound * 10 * fib(zombiesKilled) * HUMAN_NEXT_ROUND_VALUE;
-			//scores = humansAlive * humansAlive * 10 * fib(zombiesKilled) * humansAliveNextRound * humansAliveNextRound;
+			//scores = humansAlive * humansAlive * 10 * fib(zombiesKilledData) * humansAliveNextRound * humansAliveNextRound;
 		}
 
 		score += humansAlive + humansAliveNextRound;
@@ -452,11 +452,11 @@ class Sim extends Point {
 
 				} else {
 
-					// TODO print ONLY final result and number of steps for zombieId / testCase: 1, 9
+					// TODO print ONLY final result and number of allMoves for zombieId / testCase: 1, 9
 					// targetId: 3
-					//              ByMove => 4, 4, 4 scores: 1608  steps: {numberOfByMoveToThisZombie} killed: 3 5 11 10
+					//              ByMove => 4, 4, 4 scores: 1608  allMoves: {numberOfByMoveToThisZombie} killed: 3 5 11 10
 					// targetId: 4
-					//              ByMove => 4, 4, 4 scores: 1608 steps: {numberOfByMoveToThisZombie} killed: 4 9 11 10
+					//              ByMove => 4, 4, 4 scores: 1608 allMoves: {numberOfByMoveToThisZombie} killed: 4 9 11 10
 
 					let zombieId = this.zombies[zombieIndex].id;
 
