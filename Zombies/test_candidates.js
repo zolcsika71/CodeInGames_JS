@@ -442,11 +442,11 @@ class Sim extends Point {
 
 				} else {
 
-					// TODO print ONLY final result and number of allMoves for zombieId / testCase: 1, 9
+					// TODO print ONLY final result and number of countedMoves for zombieId / testCase: 1, 9
 					// targetId: 3
-					//              ByMove => 4, 4, 4 scores: 1608  allMoves: {numberOfByMoveToThisZombie} killed: 3 5 11 10
+					//              ByMove => 4, 4, 4 scores: 1608  countedMoves: {numberOfByMoveToThisZombie} killed: 3 5 11 10
 					// targetId: 4
-					//              ByMove => 4, 4, 4 scores: 1608 allMoves: {numberOfByMoveToThisZombie} killed: 4 9 11 10
+					//              ByMove => 4, 4, 4 scores: 1608 countedMoves: {numberOfByMoveToThisZombie} killed: 4 9 11 10
 
 					let zombieId = this.zombies[zombieIndex].id;
 
@@ -511,7 +511,7 @@ class CandidateOperator extends Sim {
 		candidate.coords.push(coord);
 
 		if (DEBUG_MODE && DEBUG.createCandidate.candidate) {
-			printCandidates('createCandidate.candidate', candidate);
+			printCandidates('makeCreatedCandidates.candidate', candidate);
 		}
 
 		candidate.madeBy = 'createCandidate';
@@ -609,23 +609,23 @@ class GeneticAlgorithm extends CandidateOperator {
 			this.resetClassProperties();
 			this.addCreatedCandidates();
 			this.recycle();
-			this.addRandomCandidates(initialPoolSize - this.candidates.length);
+			this.addRandomCandidates(initialPoolSize - this.candidate.length);
 		}
 	}
 	addRandomCandidates(numberOfCandidates) {
 
-		let candidatesLength = this.candidates.length;
+		let candidatesLength = this.candidate.length;
 
 		for (let i = candidatesLength; i < candidatesLength + numberOfCandidates; i++)
-			this.candidates.push(this.generator(i));
+			this.candidate.push(this.generator(i));
 	}
 	addCreatedCandidates() {
 
 		let zombiesLength = this.zombies.length,
 			humansLength = this.humans.length,
-			id = this.candidates.length;
+			id = this.candidate.length;
 
-		// create candidates for zombies
+		// create candidate for zombies
 		for (let i = 0; i < zombiesLength; i++) {
 			let zombiePos = new Point(this.zombies[i].nextX, this.zombies[i].nextY),
 				coord = this.moveToTarget(zombiePos,false);
@@ -634,12 +634,12 @@ class GeneticAlgorithm extends CandidateOperator {
 				console.error(`toZombies (${this.zombies[i].id}) - round: ${round} iterationCount: ${iterationCount}`);
 			}
 
-			this.candidates.push(this.createCandidate(coord, id));
+			this.candidate.push(this.createCandidate(coord, id));
 
 			id++;
 		}
 
-		// create candidates for humans
+		// create candidate for humans
 		for (let i = 0; i < humansLength; i++) {
 			let coord = this.moveToTarget(this.humans[i],false);
 
@@ -647,7 +647,7 @@ class GeneticAlgorithm extends CandidateOperator {
 				console.error(`toHumans (${this.humans[i].id}) - round: ${round} iterationCount: ${iterationCount} id: `);
 			}
 
-			this.candidates.push(this.createCandidate(coord, id));
+			this.candidate.push(this.createCandidate(coord, id));
 
 			id++;
 		}
@@ -660,13 +660,13 @@ class GeneticAlgorithm extends CandidateOperator {
 			console.error(`no move - round: ${round} iterationCount: ${iterationCount}`);
 		}
 
-		this.candidates.push(this.createCandidate(coord, id));
+		this.candidate.push(this.createCandidate(coord, id));
 
 
 	}
-	merge (mergedNumber = this.candidates.length) {
+	merge (mergedNumber = this.candidate.length) {
 
-		let candidatesLength = this.candidates.length,
+		let candidatesLength = this.candidate.length,
 			id = candidatesLength;
 
 		if (candidatesLength === 1)
@@ -676,48 +676,48 @@ class GeneticAlgorithm extends CandidateOperator {
 
 		for (let i = 0; i < mergedNumber; i++) {
 
-			let candidate1 = this.candidates[i],
-				candidate2 = this.candidates[i + 1];
+			let candidate1 = this.candidate[i],
+				candidate2 = this.candidate[i + 1];
 
-			this.candidates.push(this.merger(candidate1, candidate2, id));
+			this.candidate.push(this.merger(candidate1, candidate2, id));
 			id++;
 
 		}
 	}
-	mutate (mutatedNumber= this.candidates.length) {
+	mutate (mutatedNumber= this.candidate.length) {
 
-		let candidatesLength = this.candidates.length;
+		let candidatesLength = this.candidate.length;
 
 		mutatedNumber = Math.min(mutatedNumber, candidatesLength);
 
 		for (let i = 0; i < mutatedNumber; i++) {
 
-			let candidate = this.candidates[0],
+			let candidate = this.candidate[0],
 				id = candidatesLength;
 
-			this.candidates.push(this.mutator(candidate, id));
+			this.candidate.push(this.mutator(candidate, id));
 
 			id++;
 		}
 	}
 	recycle () {
-		// recycle candidates
-		this.candidates = this.candidates.filter(candidate => candidate.coords.length > 1);
-		let candidatesLength = this.candidates.length;
+		// recycle candidate
+		this.candidate = this.candidate.filter(candidate => candidate.coords.length > 1);
+		let candidatesLength = this.candidate.length;
 		for (let i = 0; i < candidatesLength; i++) {
-			this.candidates[i].id = i;
-			this.candidates[i].score = -Infinity;
-			this.candidates[i].coords = this.candidates[i].coords.slice(1);
-			this.candidates[i].madeBy = 'recycle';
+			this.candidate[i].id = i;
+			this.candidate[i].score = -Infinity;
+			this.candidate[i].coords = this.candidate[i].coords.slice(1);
+			this.candidate[i].madeBy = 'recycle';
 		}
 	}
 	computeScores () {
 
 		if (DEBUG_MODE && DEBUG.computeScores.preCheck) {
-			console.error(`preCheck: ${iterationCount}, ${this.candidates.length}`);
+			console.error(`preCheck: ${iterationCount}, ${this.candidate.length}`);
 		}
 
-		for (let candidate of this.candidates) {
+		for (let candidate of this.candidate) {
 
 			if (candidate.score === -Infinity) {
 
@@ -743,18 +743,18 @@ class GeneticAlgorithm extends CandidateOperator {
 	dropUnselected () {
 
 		if (DEBUG_MODE && DEBUG.dropUnselected.candidates) {
-			printCandidates('dropUnselected.candidates', this.candidates, 5);
+			printCandidates('dropUnselected.candidate', this.candidate, 5);
 		}
 
-		let topScore = Math.max.apply(null, this.candidates.map(candidate => candidate.score));
-		this.candidates = this.candidates.filter(candidate => candidate.score === topScore);
+		let topScore = Math.max.apply(null, this.candidate.map(candidate => candidate.score));
+		this.candidate = this.candidate.filter(candidate => candidate.score === topScore);
 
 		if (DEBUG_MODE && DEBUG.dropUnselected.candidatesLength) {
-			console.error(`dropUnselected.candidatesLength - validCandidates: ${this.candidates.length}`);
+			console.error(`dropUnselected.candidatesLength - validCandidates: ${this.candidate.length}`);
 		}
 
 		if (DEBUG_MODE && DEBUG.dropUnselected.candidates) {
-			printCandidates('dropUnselected.candidates', this.candidates, 5);
+			printCandidates('dropUnselected.candidate', this.candidate, 5);
 		}
 
 	}
@@ -768,24 +768,24 @@ class GeneticAlgorithm extends CandidateOperator {
 			console.error(`best run ${iterationCount}`);
 		}
 
-		if (this.candidates.length > 0) {
+		if (this.candidate.length > 0) {
 
-			//shuffle(this.candidates);
+			//shuffle(this.candidate);
 
-			this.bestCandidate = this.candidates[0];
+			this.bestCandidate = this.candidate[0];
 
 			if (DEBUG_MODE && DEBUG.best.candidate) {
-				printCandidates('best.candidates', this.candidates, 3);
+				printCandidates('best.candidate', this.candidate, 3);
 			}
 
 			if (DEBUG_MODE && DEBUG.best.sameCandidates) {
-				if (this.candidates.length > 1){
-					for (let i = 0; i < this.candidates.length - 1; i++) {
-						for (let j = i + 1; j < this.candidates.length; j++) {
-							if (JSON.stringify(this.candidates[i].coords) === JSON.stringify(this.candidates[j].coords)) {
-								console.error(`${this.candidates[i].id} === ${this.candidates[j].id}`);
-								printCandidates('same', this.candidates[i]);
-								printCandidates('same', this.candidates[j]);
+				if (this.candidate.length > 1){
+					for (let i = 0; i < this.candidate.length - 1; i++) {
+						for (let j = i + 1; j < this.candidate.length; j++) {
+							if (JSON.stringify(this.candidate[i].coords) === JSON.stringify(this.candidate[j].coords)) {
+								console.error(`${this.candidate[i].id} === ${this.candidate[j].id}`);
+								printCandidates('same', this.candidate[i]);
+								printCandidates('same', this.candidate[j]);
 							}
 						}
 					}
@@ -807,19 +807,19 @@ class GeneticAlgorithm extends CandidateOperator {
 			let wrongCandidatesBefore;
 
 			if (DEBUG_MODE && DEBUG.runOneIteration.tooLongCandidateCoords) {
-				wrongCandidatesBefore = this.candidates.filter(candidate => candidate.coords.length > 3).length > 0;
+				wrongCandidatesBefore = this.candidate.filter(candidate => candidate.coords.length > 3).length > 0;
 				//if (!wrongCandidatesBefore)
-				//	console.error('runOneIteration.tooLongCandidateCoords - ALL candidates good');
+				//	console.error('runOneIteration.tooLongCandidateCoords - ALL candidate good');
 			}
 
 			this.merge(mergedNumber);
 			this.mutate(mutatedNumber);
-			this.addRandomCandidates(initialPoolSize - this.candidates.length);
+			this.addRandomCandidates(initialPoolSize - this.candidate.length);
 
 			if (DEBUG_MODE && DEBUG.runOneIteration.tooLongCandidateCoords && round === 1) {
-				let wrongCandidatesAfter = this.candidates.filter(candidate => candidate.coords.length > 3);
+				let wrongCandidatesAfter = this.candidate.filter(candidate => candidate.coords.length > 3);
 				if (wrongCandidatesAfter.length > 0 && wrongCandidatesBefore)
-					printCandidates(`round: ${round} IT: ${iterationCount} candidates.length: ${this.candidates.length}`, wrongCandidatesAfter);
+					printCandidates(`round: ${round} IT: ${iterationCount} candidates.length: ${this.candidate.length}`, wrongCandidatesAfter);
 			}
 
 		}
@@ -828,15 +828,15 @@ class GeneticAlgorithm extends CandidateOperator {
 
 		this.computeScores();
 
-		/*if (DEBUG_MODE && DEBUG.runOneIteration.candidates && round === 1) {
-			printCandidates('createdPool', this.candidates, 10, false);
+		/*if (DEBUG_MODE && DEBUG.runOneIteration.candidate && round === 1) {
+			printCandidates('createdPool', this.candidate, 10, false);
 		}*/
 
 
 		this.dropUnselected();
 
 		if (DEBUG_MODE && DEBUG.runOneIteration.candidates && round === 1) {
-			printCandidates('dropUnselected', this.candidates, 10, false);
+			printCandidates('dropUnselected', this.candidate, 10, false);
 		}
 
 
@@ -850,7 +850,7 @@ class GeneticAlgorithm extends CandidateOperator {
 
 		if(DEBUG_MODE && DEBUG.runOneIteration.bestCandidate) {
 			console.error(`round: ${round} IT_count: ${iterationCount}`);
-			console.error(`candidates.length: ${this.candidates.length}`);
+			console.error(`candidates.length: ${this.candidate.length}`);
 			printCandidates('bestCandidate', this.bestCandidate);
 		}
 	}

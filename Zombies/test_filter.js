@@ -89,7 +89,7 @@ class Candidate {
 	}
 }
 
-// create N candidates
+// create N candidate
 
 const
 	RAND = new Alea(),
@@ -118,7 +118,7 @@ for (let i = 0; i < N - SAME; i++) {
 
 
 
-//console.log(`original: ${getObjectAttr(candidates)}`);
+//console.log(`original: ${getObjectAttr(candidate)}`);
 
 let topScore = Math.max.apply(null, candidates.map(candidate => candidate.score));
 

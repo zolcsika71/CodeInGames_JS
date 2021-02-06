@@ -1,16 +1,11 @@
 const
-	FIB = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89,
-		144, 233, 377, 610, 987, 1597, 2584, 4181, 6765, 10946,
-		17711, 28657, 46368, 75025, 121393, 196418, 317811, 514229, 832040, 1346269],
+
 	MY_KILL_RANGE = 2000,
 	MY_KILL_RANGE_SQUARE = MY_KILL_RANGE * MY_KILL_RANGE,
 	ZOMBIE_KILL_RANGE = 400,
 	ZOMBIE_KILL_RANGE_SQUARE = ZOMBIE_KILL_RANGE * ZOMBIE_KILL_RANGE,
-	MY_MOVE_RANGE = 1000,
-	HUMAN_NEXT_ROUND_VALUE = 1,
-	DEPTH = 3,
-	RAND = new Alea(),
-	GENERATOR_RANGE = 3500;
+	MY_MOVE_RANGE = 1000;
+
 
 
 function getObjectAttr(x) {
@@ -57,8 +52,8 @@ class Point extends Vector {
 }
 
 
-let me = new Point(4488, 3588),
-	zombie = new Point(1648, 6324);
+let me = new Point(8420, 6220),
+	zombie = new Point(8000, 6100);
 
 
-console.log(`${me.distSquare(zombie) <= MY_KILL_RANGE_SQUARE}`);
+console.log(`${me.dist(zombie)}`);

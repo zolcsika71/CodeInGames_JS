@@ -224,7 +224,7 @@ class GeneticAlgorithm {
 		this.evaluations = 0;
 	}
 	createCandidates () {
-		this.candidates = this.randomCandidates.concat(this.optimalCandidates);
+		this.candidate = this.randomCandidates.concat(this.optimalCandidates);
 	}
 	best () {
 
@@ -267,7 +267,7 @@ class GeneticAlgorithm {
 	runOneIteration (randomNumber, mergedNumber, mutatedNumber, recycledNumber) {
 
 		if (this.bestCandidate.score > - Infinity) {
-			this.topCandidates = this.candidates.filter(candidate => candidate.score >= this.bestCandidate.score);
+			this.topCandidates = this.candidate.filter(candidate => candidate.score >= this.bestCandidate.score);
 			this.merge(mergedNumber);
 			this.mutate(mutatedNumber);
 			this.recycle(recycledNumber);
@@ -310,7 +310,7 @@ class GeneticAlgorithm {
 		this.addEmergencyCandidates(this.randomCandidates.length, this.optimalCandidates);
 	}
 	computeScores () {
-		for (let candidate of this.candidates) {
+		for (let candidate of this.candidate) {
 			if (candidate.score === -Infinity) {
 				candidate.score = this.evaluator(candidate);
 				this.evaluations++;

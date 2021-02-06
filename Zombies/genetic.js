@@ -154,22 +154,22 @@ class GeneticAlgorithm {
 		this.evaluations = 0; // TODO is it necessary?
 	}
 	best () {
-		if (this.candidates.length > 0)
-			return this.candidates.reduce((p, c) => p.score > c.score ? p : c);
+		if (this.candidate.length > 0)
+			return this.candidate.reduce((p, c) => p.score > c.score ? p : c);
 		else
 			return new Candidate(0);
 	}
 	initialize (initialPoolSize) {
-		this.candidates = [];
+		this.candidate = [];
 		this.addRandomCandidates(initialPoolSize);
 	}
 	resetScores () {
-		for (let candidate of this.candidates)
+		for (let candidate of this.candidate)
 			candidate.score = -Infinity;
 	}
 	addRandomCandidates(numberOfCandidates) {
 		for (let i = 0; i < numberOfCandidates; i++)
-			this.candidates.push(this.generator.run(i));
+			this.candidate.push(this.generator.run(i));
 	}
 	iterate (randomNumber, mergedNumber, mutatedNumber) {
 		return this.runOneIteration(randomNumber, mergedNumber, mutatedNumber);
@@ -177,9 +177,9 @@ class GeneticAlgorithm {
 	runOneIteration (randomNumber, mergedNumber, mutatedNumber) {
 		// TODO shuffle?
 		this.addRandomCandidates(randomNumber);
-		shuffle(this.candidates);
+		shuffle(this.candidate);
 		this.merge(mergedNumber);
-		//shuffle(this.candidates);
+		//shuffle(this.candidate);
 		this.mutate(mutatedNumber);
 		this.computeScores();
 		this.dropUnselected();
@@ -187,35 +187,35 @@ class GeneticAlgorithm {
 	}
 	merge (mergedNumber) {
 		for (let i = 0; i < mergedNumber; i++) {
-			let firstIndex = (2 * i) % this.candidates.length,
-				secondIndex = (2 * i + 1) % this.candidates.length;
+			let firstIndex = (2 * i) % this.candidate.length,
+				secondIndex = (2 * i + 1) % this.candidate.length;
 
-			//console.error(`length: ${this.candidates.length} firstIndex: ${firstIndex} secondIndex: ${secondIndex}`);
+			//console.error(`length: ${this.candidate.length} firstIndex: ${firstIndex} secondIndex: ${secondIndex}`);
 
-			this.candidates.push(this.merger(firstIndex, secondIndex));
+			this.candidate.push(this.merger(firstIndex, secondIndex));
 		}
 	}
 	mutate (mutatedNumber) {
 		for (let i = 0; i < mutatedNumber; i++)
-			this.candidates.push(this.mutator());
+			this.candidate.push(this.mutator());
 	}
 	computeScores () {
 
-		let candidatesLength = this.candidates.length;
+		let candidatesLength = this.candidate.length;
 
-		//console.error(`merger: ${BB(this.candidates[105])}`);
+		//console.error(`merger: ${BB(this.candidate[105])}`);
 
 		for (let i = 0; i < candidatesLength; i++) {
-			if (this.candidates[i].score === -Infinity) {
-				//console.error(`candidate: ${BB(this.candidates[i])}`);
-				this.candidates[i].score = this.evaluator(this.candidates[i]);
-				//console.error(`i: ${i} scores: ${this.candidates[i].scores}`);
+			if (this.candidate[i].score === -Infinity) {
+				//console.error(`candidate: ${BB(this.candidate[i])}`);
+				this.candidate[i].score = this.evaluator(this.candidate[i]);
+				//console.error(`i: ${i} scores: ${this.candidate[i].scores}`);
 				this.evaluations++;
 			}
 		}
 	}
 	dropUnselected () {
-		this.candidates = this.candidates.filter(candidate => candidate.score > -1);
+		this.candidate = this.candidate.filter(candidate => candidate.score > -1);
 	}
 }
 class Point {
@@ -285,7 +285,7 @@ class Sim extends Point {
 
 		this.save();
 
-		//console.error(`candidates:`);
+		//console.error(`candidate:`);
 
 		let score = 0,
 			counter = 0,
@@ -435,15 +435,15 @@ genetic.generator = {
 };
 genetic.merger = (firstIndex, secondIndex) => {
 
-	if (!genetic.candidates)
+	if (!genetic.candidate)
 		return;
 
 	//console.error(`running merger`);
-	//console.error(`first: ${BB(genetic.candidates[firstIndex])} second: ${BB(genetic.candidates[secondIndex])}`);
+	//console.error(`first: ${BB(genetic.candidate[firstIndex])} second: ${BB(genetic.candidate[secondIndex])}`);
 
-	let id = genetic.candidates.length,
+	let id = genetic.candidate.length,
 		candidateLength = rnd(1, DEPTH),
-		candidateCoords = genetic.candidates[firstIndex].coords.concat(genetic.candidates[secondIndex].coords);
+		candidateCoords = genetic.candidate[firstIndex].coords.concat(genetic.candidate[secondIndex].coords);
 
 	//console.error(`candidateCoords: ${BB(candidateCoords)}`);
 
@@ -462,14 +462,14 @@ genetic.merger = (firstIndex, secondIndex) => {
 };
 genetic.mutator = () => {
 
-	if (!genetic.candidates)
+	if (!genetic.candidate)
 		return;
 
-	let id = genetic.candidates.length,
+	let id = genetic.candidate.length,
 		randomPosition = genetic.generator.createRandomPosition(),
-		candidateIndex = rnd(0, genetic.candidates.length - 1),
-		candidateStep = rnd(0, genetic.candidates[candidateIndex].coords.length - 1),
-		candidateCoords = cloneArray(genetic.candidates[candidateIndex].coords);
+		candidateIndex = rnd(0, genetic.candidate.length - 1),
+		candidateStep = rnd(0, genetic.candidate[candidateIndex].coords.length - 1),
+		candidateCoords = cloneArray(genetic.candidate[candidateIndex].coords);
 
 	candidateCoords[candidateStep].x = randomPosition.x;
 	candidateCoords[candidateStep].y = randomPosition.y;
