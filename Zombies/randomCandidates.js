@@ -9,6 +9,7 @@ const
 	ZOMBIE_KILL_RANGE = 400,
 	ZOMBIE_KILL_RANGE_SQUARE = ZOMBIE_KILL_RANGE * ZOMBIE_KILL_RANGE,
 	MY_MOVE_RANGE = 1000,
+	ZOMBIE_MOVE_RANGE = 400,
 	HUMAN_NEXT_ROUND_VALUE = 1,
 	DEPTH = 3,
 	RAND = new Alea(),
@@ -17,20 +18,16 @@ const
 		first: 1000,
 		others: 140
 	},
-	DEBUG_MODE = false,
+	DEBUG_MODE = true,
 	DEBUG = {
 		endTurn: true,
 		noCandidates: false,
 		evolved: true,
-		computeScores: {
-			run: true,
-			print: false,
-			evaluations: 5, // how many candidate will be printed
-			round: 8,
-		},
+		humanCanBeSaved: false,
 		best: {
 			computeScore: {
 				run: true,
+				round: 5,
 				lastTime: 0.999,
 			},
 			sameCandidates: {
@@ -268,15 +265,18 @@ class Sim extends Point {
 		this.humansKilled = 0;
 		this.humansKilledNextRound = 0;
 		this.stepsToZombie = 0;
+		this.moveByCoords = 0;
 		this.getData = {
 			score: 0,
 			targetedZombie: -1,
 			stepsToZombie: 0,
+			moveByCoords: 0,
 			scoreData: {
 				zombiesKilledData: [],
 				humansKilledData: [],
 				humansKilledNextRoundData: [],
 			},
+			cache: {},
 			evaluateData: {},
 		};
 	}
@@ -289,8 +289,8 @@ class Sim extends Point {
 		this.cache[id].humansKilled = this.humansKilled;
 		this.cache[id].humansKilledNextRound = this.humansKilledNextRound;
 		this.cache[id].stepsToZombie = this.stepsToZombie;
-		if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round)
-			this.cache[id].getData = JSON.parse(JSON.stringify(this.getData));
+		if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round)
+			this.cache[id].getData = cloneObject(this.getData);
 	}
 	load (id) {
 		this.x = this.cache[id].x;
@@ -301,8 +301,8 @@ class Sim extends Point {
 		this.humansKilled = this.cache[id].humansKilled;
 		this.humansKilledNextRound = this.cache[id].humansKilledNextRound;
 		this.stepsToZombie = this.cache[id].stepsToZombie;
-		if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round)
-			this.getData = JSON.parse(JSON.stringify(this.cache[id].getData));
+		if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round)
+			this.getData = cloneObject(this.cache[id].getData);
 	}
 	update (x, y, humans, zombies) {
 		this.x = x;
@@ -330,12 +330,12 @@ class Sim extends Point {
 			score = 0,
 			testData = {};
 
-		if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
+		if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
 			testData = {
 				getCandidateScore: {
 					id: candidate.id,
 					allScores: 0,
-					moves: 0,
+					moveByCoords: 0,
 					countedMoves: 0,
 				},
 				moves: [],
@@ -349,32 +349,48 @@ class Sim extends Point {
 
 			this.move(candidate.coords[i]);
 
-			let evaluator = this.score();
+			this.moveByCoords++;
+
+			if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round){
+				this.getData.moveByCoords++;
+				testData.getCandidateScore.moveByCoords++;
+			}
+
+			let evaluator = this.score(this.moveByCoords === 1);
 
 			score += evaluator;
 
-			if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round){
+			if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round){
 				this.getData.score += evaluator;
-				testData.getCandidateScore.moves++;
 			}
 
 			// return scores if all humans die at first move
-			if (i === 0 && score === -1) {
+			if (i === 0 && score === -Infinity) {
+
 				this.load(0);
-				if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
+
+				if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
 					this.getData.targetedZombie = 'None';
 					testData.moves.push(JSON.parse(JSON.stringify(this.getData)));
 				}
+
 				return [score, testData];
 			}
 		}
 
-		if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
+		if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
 			this.getData.targetedZombie = 'None';
 			testData.moves.push(JSON.parse(JSON.stringify(this.getData)));
 		}
 
 		shuffle(this.zombies);
+
+
+		/*this.zombiesKilled = 0;
+		if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
+			this.getData.scoreData.zombiesKilledData = [];
+		}*/
+
 
 		// move to each zombie
 		for (let zombie of this.zombies) {
@@ -383,8 +399,18 @@ class Sim extends Point {
 
 				this.save(1);
 
-				if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
-					this.getData.score = 0;
+				if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
+					//this.getData.cache.zombies = cloneArray(this.zombies);
+					//this.getData.cache.zombiesKilledData = cloneArray(this.getData.scoreData.zombiesKilledData);
+					//this.getData.cache.zombiesKilled = this.zombiesKilled;
+					//this.getData.cache.humansKilled = this.humansKilled;
+				}
+				this.stepsToZombie = this.moveByCoords;
+				this.moveByCoords = 0;
+
+				if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
+					this.getData.stepsToZombie = this.getData.moveByCoords;
+					this.getData.moveByCoords = 0;
 				}
 
 				let zombiePos = new Point(zombie.nextX, zombie.nextY);
@@ -395,22 +421,22 @@ class Sim extends Point {
 
 					this.stepsToZombie++;
 
-					if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
+					if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
 						this.getData.stepsToZombie++;
 					}
 
-					let evaluator = this.score();
+					let evaluator = this.score(false);
 
 					score += evaluator;
 
 					countedMoves++;
 
-					if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
+					if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
 						this.getData.score += evaluator;
 					}
 				}
 
-				if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
+				if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
 
 					this.getData.targetedZombie = zombie.id;
 					testData.getCandidateScore.countedMoves = countedMoves;
@@ -423,31 +449,29 @@ class Sim extends Point {
 			}
 		}
 
-		if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round)
+		if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round)
 			testData.getCandidateScore.allScores = score;
-
-		//score = score / (coordsLength + countedMoves);
 
 		this.load(0);
 
 		return [score, testData];
 	}
-	score() {
+	score(humansCheck = true) {
 
 		// build cemetery
-		for (let zombie of this.zombies) {
+		for (let i = 0; i < this.zombies.length; i++) {
 
-			if (zombie.alive) {
+			if (this.zombies[i].alive) {
 
-				let zombiePos = new Point(zombie.nextX, zombie.nextY);
+				let zombiePos = new Point(this.zombies[i].nextX, this.zombies[i].nextY);
 
 				// Ash kills the zombie
 				if (zombiePos.distSquare(this) <= MY_KILL_RANGE_SQUARE) {
-					zombie.alive = false;
+					this.zombies[i].alive = false;
 					this.zombiesKilled++;
-					if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
+					if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
 						this.getData.scoreData.zombiesKilledData.push({
-							id: zombie.id,
+							id: this.zombies[i].id,
 							//myPos: `${this.x}, ${this.y}`,
 							//zombiePos: `${zombiePos.x}, ${zombiePos.y}`,
 							//distSquare: zombiePos.distSquare(this),
@@ -457,36 +481,37 @@ class Sim extends Point {
 				}
 
 				// Human killed or will be killed
-				for (let human of this.humans) {
-					if (human.alive) {
-						// Human killed?
-						if (zombiePos.x === human.x && zombiePos.y === human.y) {
-							human.alive = false;
-							human.aliveNextRound = false;
-							this.humansKilled++;
-							if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
-								this.getData.scoreData.humansKilledData.push({
-									id: human.id
-								});
-							}
+				if (humansCheck) {
+					for (let j = 0; j < this.humans.length; j++) {
+						if (this.humans[j].alive) {
+							// Human killed?
+							if (zombiePos.x === this.humans[j].x && zombiePos.y === this.humans[j].y) {
+								this.humans[j].alive = false;
+								this.humans[j].aliveNextRound = false;
+								this.humansKilled++;
+								if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
+									this.getData.scoreData.humansKilledData.push({
+										id: this.humans[j].id,
+									});
+								}
 
-						}
-						// Human will be killed?
-						else if (zombiePos.distSquare(human) <= ZOMBIE_KILL_RANGE_SQUARE && human.aliveNextRound) {
-							human.aliveNextRound = false;
-							this.humansKilledNextRound++;
-							if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
-								this.getData.scoreData.humansKilledNextRoundData.push({
-									id: human.id,
-								});
 							}
+							// Human will be killed?
+							else if (zombiePos.distSquare(this.humans[j]) <= ZOMBIE_KILL_RANGE_SQUARE && this.humans[j].aliveNextRound) {
+								this.humans[j].aliveNextRound = false;
+								this.humansKilledNextRound++;
+								if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
+									this.getData.scoreData.humansKilledNextRoundData.push({
+										id: this.humans[j].id,
+									});
+								}
 
+							}
 						}
 					}
 				}
 			}
 		}
-
 		return this.evaluate();
 	}
 	evaluate () {
@@ -497,38 +522,36 @@ class Sim extends Point {
 			score = 0;
 
 		if (humansAlive < 1) {
+			score = -Infinity;
+		}
+		else if (humansAliveNextRound < humansAlive) {
 			score = -1;
 		}
 		else if (zombiesKilled === 1) {
-			score = humansAlive * humansAlive * 10
-				+ humansAliveNextRound * humansAliveNextRound * HUMAN_NEXT_ROUND_VALUE * 10;
-			/*score = humansAlive * humansAlive * 10
-				+ humansAliveNextRound * humansAliveNextRound * HUMAN_NEXT_ROUND_VALUE * 10;*/
-			/*score = humansAlive * humansAlive * 10 * humansAliveNextRound * humansAliveNextRound;*/
+			score = humansAlive * humansAlive * 10 + humansAliveNextRound * humansAliveNextRound * 10;
 		}
 		else if (zombiesKilled > 1) {
 			score = humansAlive * humansAlive * 10 * fib(zombiesKilled)
-				+ humansAliveNextRound * humansAliveNextRound * HUMAN_NEXT_ROUND_VALUE * 10 * fib(zombiesKilled);
-			/*score = humansAlive * humansAlive * 10 * fib(zombiesKilled)
-				+ humansAliveNextRound * humansAliveNextRound * 10 * fib(humansAliveNextRound);*/
-			/*score = humansAlive * humansAlive * 10 * fib(zombiesKilled)
-			 + humansAliveNextRound * humansAliveNextRound * HUMAN_NEXT_ROUND_VALUE * 10 * fib(zombiesKilled) * fib(humansAliveNextRound);*/
-			/*scores = humansAlive * humansAlive * 10 * fib(zombiesKilledData)
-			* * humansAliveNextRound * humansAliveNextRound;*/
+				+ humansAliveNextRound * humansAliveNextRound * 10 * fib(zombiesKilled);
 		}
-		//score += humansAlive + humansAliveNextRound;
 
-		if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
+		//score += humansAlive * humansAlive + humansAliveNextRound * humansAliveNextRound;
+
+		if (DEBUG_MODE && DEBUG.best.computeScore.run && DEBUG.best.computeScore.round === round) {
 
 			this.getData.evaluateData = {
 				humansAlive: humansAlive,
 				zombiesKilled: zombiesKilled,
 				humansAliveNextRound: humansAliveNextRound,
-				score: this.getData.stepsToZombie > 0 ? score / this.getData.stepsToZombie : score,
+				score: score < 0 ? score : this.getData.moveByCoords > 0 ?
+					score * fib(this.zombiesKilled + 2) / this.getData.moveByCoords
+					: score / (this.getData.stepsToZombie + this.getData.moveByCoords),
 			};
 		}
 		//return score;
-		return this.stepsToZombie > 0 ? score / this.stepsToZombie : score;
+		return score < 0 ? score : this.moveByCoords > 0 ?
+			score * fib(this.zombiesKilled + 2) / this.moveByCoords
+			: score / (this.stepsToZombie + this.moveByCoords);
 	}
 }
 class CandidateOperator extends Sim {
@@ -546,23 +569,23 @@ class CandidateOperator extends Sim {
 	generator (id) {
 
 		let candidate = new Candidate(id),
-			candidateLength = rnd(1, DEPTH);
+			candidateCoordsLength = rnd(1, DEPTH);
 
-		for (let i = 0; i < candidateLength; i++)
+		for (let i = 0; i < candidateCoordsLength; i++)
 			candidate.coords.push(this.createRandomCoord());
 
 		candidate.madeBy = 'generator';
 
 		return candidate;
 	}
-	createCandidate (target, id) {
+	createCandidate (target, id, label) {
 
 		let candidate = new Candidate(id),
 			coord = this.directionToTarget(target);
 
 		candidate.coords.push(coord);
 
-		candidate.madeBy = 'createCandidate';
+		candidate.madeBy = `createCandidate - ${label[0]} ${label[1]}` ;
 
 		return candidate;
 	}
@@ -578,31 +601,77 @@ class GeneticAlgorithm extends CandidateOperator {
 		this.evaluations = 0;
 		this.firstEvaluationScore = 0;
 		this.bestEvaluationScore = 0;
-		this.candidatesMade = 0;
+		this.candidateId = 0;
 		this.createdCandidates = [];
 	}
 	reset() {
-		this.resetClassProperties();
+		this.candidate = new Candidate(-1);
+		this.bestCandidate = new Candidate(-2);
+		this.evaluations = 0;
+		this.firstEvaluationScore = 0;
+		this.bestEvaluationScore = 0;
+		this.candidateId = 0;
+		this.createdCandidates = [];
 	}
 	randomCandidate() {
-		this.candidate = this.generator(this.candidatesMade);
-		this.candidatesMade++;
+		this.candidate = this.generator(this.candidateId);
+		this.candidateId++;
 	}
 	makeCreatedCandidates() {
 
-		// create zombies target
-		for (const zombie of this.zombies) {
-			this.createdCandidates.push(this.createCandidate(zombie, this.candidatesMade));
-			this.candidatesMade++;
+		function humanCanBeSaved (human) {
+
+			let distance = Infinity,
+				closestZombieDistSquare;
+
+			for (let zombie of that.zombies) {
+
+				let zombiePos = new Point(zombie.nextX, zombie.nextY);
+				let distSquare = zombiePos.distSquare(human);
+				if (distSquare < distance) {
+					distance = distSquare;
+					closestZombieDistSquare = [distSquare, zombie];
+				}
+			}
+
+			let meToHuman = that.dist(human) - MY_MOVE_RANGE, // MY_KILL_RANGE / 2
+				zombieToHuman = Math.sqrt(closestZombieDistSquare[0]),
+				meStepsToHuman = Math.floor(meToHuman / MY_MOVE_RANGE),
+				// zombie already moved in the start of the turn, Ash do not, so zombieSteps + 1
+				zombieStepsToHuman = Math.ceil(zombieToHuman / ZOMBIE_MOVE_RANGE) + 1;
+
+			if (DEBUG_MODE && DEBUG.humanCanBeSaved) {
+				console.error(`humanId: ${human.id} zombieId: ${closestZombieDistSquare[1].id}`);
+				console.error(`meStepsToHuman: ${meStepsToHuman}, zombieStepsToHuman: ${zombieStepsToHuman}`);
+			}
+
+			return meStepsToHuman <= zombieStepsToHuman;
 		}
+
+		let that = this;
+
 		// create humans target
 		for (const human of this.humans) {
-			this.createdCandidates.push(this.createCandidate(human, this.candidatesMade));
-			this.candidatesMade++;
+
+			// human can be saved
+			if (humanCanBeSaved(human)) {
+				this.createdCandidates.push(this.createCandidate(human, this.candidateId, ['human', human.id]));
+				this.candidateId++;
+			} else { // human can not be saved
+				console.error(`dead human: ${human.id}`);
+			}
 		}
+
+		// create zombies target
+		for (const zombie of this.zombies) {
+			this.createdCandidates.push(this.createCandidate(zombie, this.candidateId, ['zombie', zombie.id]));
+			this.candidateId++;
+		}
+
 		// create noMoves target
 		let noMove = new Vector(0, 0);
-		this.createdCandidates.push(this.createCandidate(noMove, this.candidatesMade));
+		this.createdCandidates.push(this.createCandidate(noMove, this.candidateId, ['noMove', '']));
+		this.candidateId++;
 	}
 	computeScores () {
 		
@@ -611,49 +680,46 @@ class GeneticAlgorithm extends CandidateOperator {
 		this.candidate.score = evaluator[0];
 		this.candidate.testData = evaluator[1];
 		this.evaluations++;
-
-		if (DEBUG_MODE && DEBUG.computeScores.run
-					&& DEBUG.computeScores.print
-					&& DEBUG.computeScores.round === round
-					&& this.evaluations <= DEBUG.computeScores.evaluations) {
-			// print testData
-			console.error(`no: ${this.evaluations}`);
-			console.error(`${getObjectAttr(this.candidate.testData)}`);
-		}
 	}
 	solve (firstIteration) {
 
 		if (firstIteration) {
+
 			this.makeCreatedCandidates();
-			for (const createdCandidate of this.createdCandidates) {
-				this.computeScores(createdCandidate);
+
+			for (let createdCandidate of this.createdCandidates) {
+				this.candidate = createdCandidate;
+				this.computeScores();
 				this.best();
 			}
+
 		} else {
 			this.randomCandidate();
 			this.computeScores();
 			this.best();
 		}
-	}
-	resetClassProperties () {
-		this.bestCandidate = new Candidate(-2);
-		this.evaluations = 0;
+
+		if (DEBUG_MODE && DEBUG.evolved){
+			if (firstIteration)
+				this.firstEvaluationScore = this.bestCandidate.score;
+			else if (this.bestCandidate.score >= this.firstEvaluationScore)
+				this.bestEvaluationScore = this.bestCandidate.score;
+		}
+
 	}
 	best () {
 
 		if (this.candidate.score > this.bestCandidate.score) {
-			this.bestCandidate = cloneObject(this.candidate);
+			this.bestCandidate = this.candidate;
 		}
 
 		if (DEBUG_MODE && DEBUG.best.computeScore.run
-			&& DEBUG.computeScores.round === round
+			&& DEBUG.best.computeScore.round === round
 			&& Date.now() - now > DEBUG.best.computeScore.lastTime * time
 		) {
 			console.error(`no: ${this.evaluations}`);
 			console.error(`id: ${this.bestCandidate.id} score: ${this.bestCandidate.score}`);
-			console.error(`candidate: ${getObjectAttr(this.bestCandidate.testData)}`);
-			//console.error(`lastCandidate: ${getObjectAttr(this.lastCandidate)}`);
-			//console.error(`bestCandidate: ${getObjectAttr(this.bestCandidate)}`);
+			console.error(`bestCandidate: ${getObjectAttr(this.bestCandidate.testData)}`);
 		}
 	}
 }

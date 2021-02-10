@@ -4,7 +4,11 @@ const
 	MY_KILL_RANGE_SQUARE = MY_KILL_RANGE * MY_KILL_RANGE,
 	ZOMBIE_KILL_RANGE = 400,
 	ZOMBIE_KILL_RANGE_SQUARE = ZOMBIE_KILL_RANGE * ZOMBIE_KILL_RANGE,
-	MY_MOVE_RANGE = 1000;
+	ZOMBIE_MOVE_RANGE = 400,
+	ZOMBIE_MOVE_RANGE_SQUARE = ZOMBIE_MOVE_RANGE * ZOMBIE_MOVE_RANGE,
+	MY_MOVE_RANGE = 1000,
+	MY_MOVE_RANGE_SQUARE = MY_MOVE_RANGE * MY_MOVE_RANGE;
+
 
 
 
@@ -52,8 +56,26 @@ class Point extends Vector {
 }
 
 
-let me = new Point(8420, 6220),
-	zombie = new Point(8000, 6100);
+let me = new Point(5000, 0),
+	zombie = new Point(2737, 6831),
+	human = new Point(950, 6000);
+
+/*let meToHuman = me.distSquare(human) - MY_MOVE_RANGE_SQUARE,
+	zombieToHuman = zombie.distSquare(human),
+	meStepsToHuman = meToHuman / MY_MOVE_RANGE_SQUARE,
+	zombieStepsToHuman = zombieToHuman / ZOMBIE_MOVE_RANGE_SQUARE + ((2 * Math.sqrt(zombieToHuman)) / ZOMBIE_MOVE_RANGE) + 1;
 
 
-console.log(`${me.dist(zombie)}`);
+console.log(`${meStepsToHuman}, ${zombieStepsToHuman}`);*/
+
+
+
+let meToHuman = me.dist(human) - MY_MOVE_RANGE,
+	zombieToHuman = zombie.dist(human),
+	meStepsToHuman = Math.floor(meToHuman / MY_MOVE_RANGE),
+	zombieStepsToHuman = Math.floor(zombieToHuman / ZOMBIE_MOVE_RANGE) + 2;
+
+
+
+console.log(`${meStepsToHuman}, ${zombieStepsToHuman}`);
+

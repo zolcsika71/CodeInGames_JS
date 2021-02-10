@@ -4,7 +4,7 @@
     <inspection_tool class="DuplicatedCode" enabled="true" level="WEAK WARNING" enabled_by_default="true">
       <GlobalSettings restrictedDuplicateScope="SAME_FILE" />
       <Languages>
-        <language minSize="46" name="JavaScript" />
+        <language minSize="56" name="JavaScript" />
       </Languages>
     </inspection_tool>
     <inspection_tool class="Eslint" enabled="true" level="WARNING" enabled_by_default="true" />

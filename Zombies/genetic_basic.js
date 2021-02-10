@@ -577,6 +577,7 @@ class Sim extends Point {
 							this.humansKilledNextRound++;
 							if (DEBUG_MODE && DEBUG.computeScores.run && DEBUG.computeScores.round === round) {
 								this.getData.scoreData.humansKilledNextRoundData.push({
+									// TODO human can be saved?
 									id: human.id,
 								});
 							}
@@ -602,7 +603,7 @@ class Sim extends Point {
 		else if (zombiesKilled === 1) {
 			/*score = humansAlive * humansAlive * 10
 				+ humansAliveNextRound * humansAliveNextRound * HUMAN_NEXT_ROUND_VALUE * 10;*/
-			score = humansAlive * humansAlive * 10 * humansAliveNextRound * humansAliveNextRound;
+			score = humansAlive * humansAlive * 10 + humansAliveNextRound * humansAliveNextRound * 10;
 		}
 		else if (zombiesKilled > 1) {
 			/*score = humansAlive * humansAlive * 10 * fib(zombiesKilled)
@@ -794,8 +795,8 @@ class GeneticAlgorithm extends CandidateOperator {
 	}
 	addRandomCandidates(numberOfCandidates) {
 		for (let i = 0; i < numberOfCandidates; i++) {
-			this.candidates.push(this.generator(this.makeCreatedCandidates));
-			this.makeCreatedCandidates++;
+			this.candidates.push(this.generator(this.candidateId));
+			this.candidateId++;
 		}
 	}
 	addCreatedCandidates() {
@@ -810,9 +811,9 @@ class GeneticAlgorithm extends CandidateOperator {
 				console.error(`toZombies (${zombie.id}) - round: ${round} iterationCount: ${iterationCount}`);
 			}
 
-			this.candidates.unshift(this.createCandidate(coord, this.makeCreatedCandidates));
+			this.candidates.unshift(this.createCandidate(coord, this.candidateId));
 
-			this.makeCreatedCandidates++;
+			this.candidateId++;
 		}
 
 		// create candidates for humans
@@ -824,9 +825,9 @@ class GeneticAlgorithm extends CandidateOperator {
 				console.error(`toHumans (${human.id}) - round: ${round} iterationCount: ${iterationCount} id: `);
 			}
 
-			this.candidates.push(this.createCandidate(coord, this.makeCreatedCandidates));
+			this.candidates.push(this.createCandidate(coord, this.candidateId));
 
-			this.makeCreatedCandidates++;
+			this.candidateId++;
 		}
 
 		// create candidate for no move
@@ -836,9 +837,9 @@ class GeneticAlgorithm extends CandidateOperator {
 			console.error(`no move - round: ${round} iterationCount: ${iterationCount}`);
 		}
 
-		this.candidates.push(this.createCandidate(coord, this.makeCreatedCandidates));
+		this.candidates.push(this.createCandidate(coord, this.candidateId));
 
-		this.makeCreatedCandidates++;
+		this.candidateId++;
 	}
 	/*merge (mergedNumber = this.candidates.length) {
 
@@ -881,8 +882,8 @@ class GeneticAlgorithm extends CandidateOperator {
 		this.candidates = this.candidates.filter(candidate => candidate.coords.length > 1);
 
 		for (let i = 0; i < this.candidates.length; i++) {
-			this.candidates[i] = this.reCycler(this.candidates[i].coords.slice(1), this.makeCreatedCandidates);
-			this.makeCreatedCandidates++;
+			this.candidates[i] = this.reCycler(this.candidates[i].coords.slice(1), this.candidateId);
+			this.candidateId++;
 		}
 	}
 	computeScores () {
