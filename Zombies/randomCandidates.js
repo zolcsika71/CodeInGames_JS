@@ -16,9 +16,9 @@ const
 	GENERATOR_RANGE = 3500,
 	ITERATION_TIME = {
 		first: 1000,
-		others: 140
+		others: 130
 	},
-	DEBUG_MODE = true,
+	DEBUG_MODE = false,
 	DEBUG = {
 		endTurn: true,
 		noCandidates: false,
@@ -27,7 +27,7 @@ const
 		best: {
 			computeScore: {
 				run: true,
-				round: 5,
+				round: 3,
 				lastTime: 0.999,
 			},
 			sameCandidates: {
@@ -524,15 +524,15 @@ class Sim extends Point {
 		if (humansAlive < 1) {
 			score = -Infinity;
 		}
+		// TODO check this (results not changed) -  maybe we must simulate zombie moves / check if this human can be saved
 		else if (humansAliveNextRound < humansAlive) {
 			score = -1;
 		}
 		else if (zombiesKilled === 1) {
-			score = humansAlive * humansAlive * 10 + humansAliveNextRound * humansAliveNextRound * 10;
+			score = humansAlive * humansAlive * 10;
 		}
 		else if (zombiesKilled > 1) {
-			score = humansAlive * humansAlive * 10 * fib(zombiesKilled)
-				+ humansAliveNextRound * humansAliveNextRound * 10 * fib(zombiesKilled);
+			score = humansAlive * humansAlive * 10 * fib(zombiesKilled);
 		}
 
 		//score += humansAlive * humansAlive + humansAliveNextRound * humansAliveNextRound;
@@ -585,7 +585,7 @@ class CandidateOperator extends Sim {
 
 		candidate.coords.push(coord);
 
-		candidate.madeBy = `createCandidate - ${label[0]} ${label[1]}` ;
+		candidate.madeBy = `createCandidate - ${label[0]} ${label[1]}`;
 
 		return candidate;
 	}
